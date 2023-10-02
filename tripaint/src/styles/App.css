@@ -1,0 +1,49 @@
+:root {
+  --background: #cce3f7;
+  --ui_background: #ecf4fb;
+  --ui_border: #000000;
+}
+
+.App {
+  display: grid;
+  grid-template-areas:
+    'header header header header header header'
+    'menu main main main main right'
+    'footer footer footer footer footer footer';
+  gap: 10px;
+  background-color: var(--background);
+  padding: 10px;
+}
+
+.t_header {
+  grid-area: header;
+  height: 8vh;
+  background-color: var(--ui_background);
+  border: solid 2px var(--ui_border);
+}
+
+.t_leftui {
+  grid-area: menu;
+  background-color: var(--ui_background);
+  border: solid 2px var(--ui_border);
+}
+
+.t_canvas {
+  height: 81vh;
+  grid-area: main;
+  background-color: white;
+  border: solid 2px var(--ui_border);
+}
+
+.t_rightui {
+  grid-area: right;
+  background-color: var(--ui_background);
+  border: solid 2px var(--ui_border);
+}
+
+.t_footer {
+  height: 5vh;
+  grid-area: footer;
+  background-color: var(--ui_background);
+  border: solid 2px var(--ui_border);
+}
