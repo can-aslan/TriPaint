@@ -4,46 +4,62 @@
   --ui_border: #000000;
 }
 
+body, html {
+  margin: 0;
+  padding: 0;
+  background-color: var(--background);
+}
+
 .App {
-  display: grid;
-  grid-template-areas:
-    'header header header header header header'
-    'menu main main main main right'
-    'footer footer footer footer footer footer';
-  gap: 10px;
+  height: 45vmax;
+  display: flex;
+  flex-direction: column;
   background-color: var(--background);
   padding: 10px;
+  gap: 10px;
+}
+
+.header_container {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .t_header {
-  grid-area: header;
+  flex: 1;
   height: 8vh;
   background-color: var(--ui_background);
   border: solid 2px var(--ui_border);
 }
 
+.content_container {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  flex: 1;
+}
+
 .t_leftui {
-  grid-area: menu;
+  flex: 1;
   background-color: var(--ui_background);
   border: solid 2px var(--ui_border);
 }
 
 .t_canvas {
-  height: 81vh;
-  grid-area: main;
+  flex: 4;
   background-color: white;
+  height: 80vh;
   border: solid 2px var(--ui_border);
 }
 
 .t_rightui {
-  grid-area: right;
+  flex: 1;
   background-color: var(--ui_background);
   border: solid 2px var(--ui_border);
 }
 
 .t_footer {
   height: 5vh;
-  grid-area: footer;
   background-color: var(--ui_background);
   border: solid 2px var(--ui_border);
 }
