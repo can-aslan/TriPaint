@@ -45,6 +45,11 @@ body, html {
   border: solid 2px var(--ui_border);
 }
 
+#gl_canvas {
+  height: 100%;
+  width: 100%;
+}
+
 .t_canvas {
   flex: 4;
   background-color: white;
