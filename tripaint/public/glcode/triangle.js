@@ -4,7 +4,7 @@ var gl;
 var points;
 
 window.onload = function init() {
-    var canvas = document.getElementById( "gl_canvas" );
+    var canvas = document.getElementById( "root" );
     gl = WebGLUtils.setupWebGL( canvas );    
     if ( !gl ) { alert( "WebGL isn't available" ); }        
 
