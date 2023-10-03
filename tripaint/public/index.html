@@ -25,6 +25,22 @@
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
     <title>TriPaint - CS465 Assignment 1</title>
+    <script id="vertex-shader" type="x-shader/x-vertex">
+      attribute vec4 vPosition;
+      void main() {
+        gl_Position = vPosition;
+      }
+    </script>
+    <script id="fragment-shader" type="x-shader/x-fragment">
+      precision mediump float;
+      void main() {
+        gl_FragColor = vec4( 1.0, 0.0, 0.0, 1.0 );
+      }
+    </script>
+    <script type="text/javascript" src="../src/glcommon/webgl-utils.js"></script>
+    <script type="text/javascript" src="../src/glcommon/initShaders.js"></script>
+    <script type="text/javascript" src="../src/glcommon/MV.js"></script>
+    <script type="text/javascript" src="../src/glcode/triangle.js"></script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
