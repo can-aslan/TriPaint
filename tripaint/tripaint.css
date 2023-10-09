@@ -1,0 +1,70 @@
+:root {
+  --background: #cce3f7;
+  --ui_background: #ecf4fb;
+  --ui_border: #000000;
+}
+
+body, html {
+  margin: 0;
+  padding: 0;
+  background-color: var(--background);
+}
+
+.App {
+  height: 45vmax;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background);
+  padding: 10px;
+  gap: 10px;
+}
+
+.header_container {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.t_header {
+  flex: 1;
+  height: 8vh;
+  background-color: var(--ui_background);
+  border: solid 2px var(--ui_border);
+}
+
+.content_container {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  flex: 1;
+}
+
+.t_leftui {
+  flex: 1;
+  background-color: var(--ui_background);
+  border: solid 2px var(--ui_border);
+}
+
+#gl_canvas {
+  height: 100%;
+  width: 100%;
+}
+
+.t_canvas {
+  flex: 4;
+  background-color: white;
+  height: 80vh;
+  border: solid 2px var(--ui_border);
+}
+
+.t_rightui {
+  flex: 1;
+  background-color: var(--ui_background);
+  border: solid 2px var(--ui_border);
+}
+
+.t_footer {
+  height: 5vh;
+  background-color: var(--ui_background);
+  border: solid 2px var(--ui_border);
+}
