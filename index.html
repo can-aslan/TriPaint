@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link rel="stylesheet" href="./tripaint.css"></link>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta
+      name="description"
+      content="CS465 Assignment 1"
+    />
+    <title>TriPaint - CS465 Assignment 1</title>
+    <script id="vertex-shader" type="x-shader/x-vertex">
+      attribute vec4 vPosition;
+      void main() {
+        gl_Position = vPosition;
+      }
+    </script>
+    <script id="fragment-shader" type="x-shader/x-fragment">
+      precision mediump float;
+      void main() {
+        gl_FragColor = vec4( 1.0, 0.0, 0.0, 1.0 );
+      }
+    </script>
+    <script type="text/javascript" src="./webgl-utils.js"></script>
+    <script type="text/javascript" src="./initShaders.js"></script>
+    <script type="text/javascript" src="./MV.js"></script>
+    <script type="text/javascript" src="./triangle.js"></script>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div class="App">
+      <div class="header_container">
+        <div class="t_header">H</div>
+      </div>
+      <div class="content_container">
+        <div class="t_leftui">L</div>
+        <div class="t_canvas">
+          <canvas id="gl_canvas">Your browser doesn't support the HTML5 canvas element!</canvas>
+        </div>
+        <div class="t_rightui">R</div>
+      </div>
+      <div class="footer_container">
+        <div class="t_footer">F</div>
+      </div>
+    </div>
+  </body>
+</html>
