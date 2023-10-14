@@ -1,7 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <link rel="stylesheet" href="./tripaint.css"></link>
+    <link rel="stylesheet" href="./tripaint.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons"
+      rel="stylesheet">
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
@@ -30,8 +33,38 @@
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div class="App">
-      <div class="top-bar"></div>
-      <div class="left-bar"></div>
+      <div class="top-bar">
+        <div></div>
+        <div class="header">
+          <img src="./icons/icons8-triangle-50.png" alt="Icon">
+          <h3>tripaint</h3>
+        </div>
+        <div class="file-opr">
+          <button class="icon-button pencil-button">
+            <img src="./icons/icons8-open-file-50.png" alt="Pencil Icon">
+          </button>
+          <button class="icon-button pencil-button">
+            <img src="./icons/icons8-save-50.png" alt="Pencil Icon">
+          </button>
+        </div>
+      </div>
+      <div class="left-bar">
+        <button class="icon-button pencil-button">
+          <img src="./icons/icons8-edit-50.png" alt="Pencil Icon">
+        </button>
+        <button class="icon-button eraser-button">
+          <img src="./icons/icons8-eraser-50.png" alt="Pencil Icon">
+        </button>
+        <button class="icon-button eraser-button">
+          <img src="./icons/icons8-selection-50.png" alt="Pencil Icon">
+        </button>
+        <button class="icon-button eraser-button">
+          <img src="./icons/icons8-undo-50.png" alt="Pencil Icon">
+        </button>
+        <button class="icon-button eraser-button">
+          <img src="./icons/icons8-redo-50.png" alt="Pencil Icon">
+        </button>
+      </div>
 
       <div class="canvas-area">
         <canvas class="gl_canvas_class" id="gl_canvas" width="900" height="900" style="width: 900px; height: 900px;">Your browser doesn't support the HTML5 canvas element!</canvas>
