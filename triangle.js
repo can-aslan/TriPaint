@@ -8,6 +8,12 @@ var glGrid = [];
 var gridCells = [];
 const GRID_SIZE = 15;
 var program;
+var zoom = 1.0;
+var panX = 0.0;
+var panY = 0.0;
+var mouseDown = false;
+var lastMouseX;
+var lastMouseY;
 
 class Point {
     constructor(x, y) {
@@ -27,6 +33,36 @@ class Cell {
             (p1.y + p2.y + p3.y + p4.y) / 4
         ));
     }
+}
+
+function moveCanvasMouseDown (event) {
+    mouseDown = true;
+    lastMouseX = event.clientX;
+    lastMouseY = event.clientY;
+}
+
+function moveCanvasMouseDrag (event) {
+    // if mouse is not down, don't do anything
+    if (!mouseDown) {
+        return;
+    }
+
+    // find coordinate differences
+    var deltaX = event.clientX - lastMouseX;
+    var deltaY = event.clientY - lastMouseY;
+
+    lastMouseX = event.clientX;
+    lastMouseY = event.clientY;
+
+    // Update the pan based on mouse drag
+    panX += deltaX / (canvas.width / 2 / zoom);
+    panY -= deltaY / (canvas.height / 2 / zoom);
+
+    render();
+}
+
+function moveCanvasMouseUp (event) {
+    mouseDown = false;
 }
 
 function convertPointToWebGLCoordinates(point) {
@@ -137,7 +173,7 @@ function draw(event, canvas) {
     render();
 }
 
-window.onload = function init(){
+window.onload = function init() {
     var canvas = document.getElementById( "gl_canvas" );
     canvas.width = 900;
     canvas.height = 900;
