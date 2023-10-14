@@ -4,7 +4,7 @@ var gl;
 var points;
 
 window.onload = function init() {
-    var canvas = document.getElementById( "root" );
+    var canvas = document.getElementById( "gl_canvas" );
     gl = WebGLUtils.setupWebGL( canvas );    
     if ( !gl ) { alert( "WebGL isn't available" ); }        
 
@@ -13,6 +13,19 @@ window.onload = function init() {
         vec2(  0,  1 ),
         vec2(  1, -1 )    
     ];    
+
+    let points = [][30]; 
+    for (let i = 0; i <= 30; i++) {
+        for (let j = 0; j <= 30; j++) {
+            points.push(vec2(-1 + j/15, -1 + i/15));
+        }
+    }
+
+    var vertices1 = [
+        points[0],
+        points[90],
+        points[40]    
+    ];
 
     //  Configure WebGL 
     gl.viewport( 0, 0, canvas.width, canvas.height );
@@ -25,12 +38,14 @@ window.onload = function init() {
     // Load the data into the GPU        
     var bufferId = gl.createBuffer();
     gl.bindBuffer( gl.ARRAY_BUFFER, bufferId );
-    gl.bufferData( gl.ARRAY_BUFFER, flatten(vertices), gl.STATIC_DRAW ); 
+    gl.bufferData( gl.ARRAY_BUFFER, flatten(vertices1), gl.STATIC_DRAW ); 
 	
     // Associate out shader variables with our data buffer
     var vPosition = gl.getAttribLocation( program, "vPosition" );
+
     gl.vertexAttribPointer( vPosition, 2, gl.FLOAT, false, 0, 0 );
-    gl.enableVertexAttribArray( vPosition );    
+    gl.enableVertexAttribArray( vPosition ); 
+
     render();
 };
 

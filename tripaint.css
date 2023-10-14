@@ -51,12 +51,14 @@ code {
 .content_container {
   display: flex;
   align-items: stretch;
+  justify-content: center;
   gap: 10px;
   flex: 1;
 }
 
 .t_leftui {
-  flex: 1;
+  width: 10vh;
+  height: 500px;
   background-color: var(--ui_background);
   border: solid 2px var(--ui_border);
 }
@@ -67,14 +69,15 @@ code {
 }
 
 .t_canvas {
-  flex: 4;
   background-color: white;
-  height: 80vh;
+  width: 500px;
+  height: 500px;
   border: solid 2px var(--ui_border);
 }
 
 .t_rightui {
-  flex: 1;
+  width: 10vh;
+  height: 500px;
   background-color: var(--ui_background);
   border: solid 2px var(--ui_border);
 }
