@@ -80,10 +80,10 @@ code {
   height: 100vh;
 }
 
-#gl_canvas {
-  /* background: black; */
+.gl_canvas_class {
+  background: white;
   width: 900px; 
-  height: 450px; 
+  height: 900px; 
   border: 2px solid white;
   z-index: 2;
 }
