@@ -1,6 +1,4 @@
 var gl;
-var totalCells = 0;
-var totalPolygons = 0;
 var isMouseDown = false;
 var allBuffers = [];
 var pointsGrid = [];
@@ -14,6 +12,10 @@ var panY = 0.0;
 var mouseDown = false;
 var lastMouseX;
 var lastMouseY;
+var isOperating = false;
+var curOperation;
+var operations = [];
+var undoneOperations = [];
 
 class Point {
     constructor(x, y) {
@@ -69,8 +71,8 @@ function convertPointToWebGLCoordinates(point) {
     return vec2(point.x / GRID_SIZE, point.y / GRID_SIZE);
 }
 
-function convertCellToArray(cell) {
-    return [cell.p1, cell.p2, cell.p3, cell.p4, cell.p5];
+function convertToArray(obj) {
+    return [...Object.values(obj)];
 }
 
 function distanceToPoint(x1, y1, point) {
@@ -81,6 +83,10 @@ function distanceToPoint(x1, y1, point) {
 }
 
 function draw(event, canvas) {
+    if (operations[curOperation] === undefined) {
+        operations[curOperation] = 0;
+    }
+
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
@@ -155,7 +161,8 @@ function draw(event, canvas) {
         cellClicked.p5
     ];
 
-    totalPolygons++;
+    operations[curOperation] = operations[curOperation] + 1;
+    // console.log("Increased num of ops. New no: " + operations[curOperation] + "\n Num of buffers: " + allBuffers.length);
 
     // Load the data into the GPU 
     var bufferId = gl.createBuffer();
@@ -173,7 +180,53 @@ function draw(event, canvas) {
     render();
 }
 
+function undoLastStroke() {
+    // console.log("Num of buffers: " + allBuffers.length);
+    // console.log("Num of ops to remove: " + operations[curOperation]);
+    
+    if (curOperation <= 0) { return; }
+
+    const undoneOperation = allBuffers.splice(allBuffers.length - operations[curOperation - 1], operations[curOperation - 1]);
+    
+    operations[curOperation - 1] = 0;
+
+    undoneOperations.push(undoneOperation);
+    // console.log(undoneOperations);
+
+    curOperation--;
+
+    render();
+}
+
+function redoLastUndoneStroke() {
+    if (undoneOperations.length < 1) { return; }
+
+    curOperation++;
+    operations[curOperation - 1] = undoneOperations[undoneOperations.length - 1].length;
+
+    for (let i = 0; i < undoneOperations[undoneOperations.length - 1].length; i++) {
+        allBuffers.push(undoneOperations[undoneOperations.length - 1][i]);
+    }
+
+    undoneOperations.splice(undoneOperations.length - 1, 1);
+
+    render();
+}
+
 window.onload = function init() {
+    curOperation = 0;
+    operations[curOperation] = 0;
+    
+    var undoButton = document.getElementById("undobutton");
+    undoButton.addEventListener("click", (event) => {
+        undoLastStroke();
+    });
+
+    var redoButton = document.getElementById("redobutton");
+    redoButton.addEventListener("click", (event) => {
+        redoLastUndoneStroke();
+    });
+
     var canvas = document.getElementById( "gl_canvas" );
     canvas.width = 900;
     canvas.height = 900;
@@ -190,10 +243,14 @@ window.onload = function init() {
     gl.useProgram( program )
     
     canvas.addEventListener("mouseup", (event) => {
+        isOperating = false;
         isMouseDown = false;
+
+        curOperation++;
     });
 
     canvas.addEventListener("mousedown", (event) => {
+        isOperating = true;
         isMouseDown = true;
         draw(event, canvas);
     });  
@@ -225,7 +282,6 @@ window.onload = function init() {
                 pointsGrid[i][j + 1],
                 pointsGrid[i + 1][j + 1],
             ));
-            totalCells++;
         }
     }
 
