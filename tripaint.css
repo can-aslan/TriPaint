@@ -43,7 +43,7 @@ code {
 
 .t_header {
   flex: 1;
-  height: 8vh;
+  height: 40px;
   background-color: var(--ui_background);
   border: solid 2px var(--ui_border);
 }
@@ -57,8 +57,8 @@ code {
 }
 
 .t_leftui {
-  width: 10vh;
-  height: 500px;
+  width: 30px;
+  height: 900px;
   background-color: var(--ui_background);
   border: solid 2px var(--ui_border);
 }
@@ -70,14 +70,12 @@ code {
 
 .t_canvas {
   background-color: white;
-  width: 500px;
-  height: 500px;
   border: solid 2px var(--ui_border);
 }
 
 .t_rightui {
-  width: 10vh;
-  height: 500px;
+  width: 30px;
+  height: 900px;
   background-color: var(--ui_background);
   border: solid 2px var(--ui_border);
 }
