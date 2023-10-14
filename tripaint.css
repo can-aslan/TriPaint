@@ -13,6 +13,7 @@ html {
 body {
   margin: 0;
   padding: 0;
+  height: 100vh;
   background-color: var(--background);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -28,62 +29,61 @@ code {
 
 .App {
   height: 45vmax;
-  display: flex;
-  flex-direction: column;
   background-color: var(--background);
+}
+
+.top-bar, .left-bar, .right-bar, .bottom-bar {
+  position: fixed;
+  z-index: 10;
   padding: 10px;
-  gap: 10px;
 }
 
-.header_container {
+.top-bar {
+  top: 0;
+  left: 0;
+  right: 0;
+  background: blue;
+  height: 15px;
+}
+
+.bottom-bar {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: pink;
+  height: 10px;
+}
+
+.left-bar {
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 30px;
+  background: aqua;
+}
+
+.right-bar {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 120px;
+  background: greenyellow;
+}
+
+.canvas-area {
+  padding: 20px;
   display: flex;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.t_header {
-  flex: 1;
-  height: 8vh;
-  background-color: var(--ui_background);
-  border: solid 2px var(--ui_border);
-}
-
-.content_container {
-  display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
-  gap: 10px;
-  flex: 1;
-}
-
-.t_leftui {
-  width: 10vh;
-  height: 500px;
-  background-color: var(--ui_background);
-  border: solid 2px var(--ui_border);
+  flex-grow: 1;
+  background: purple;
+  height: 100vh;
 }
 
 #gl_canvas {
-  height: 100%;
-  width: 100%;
-}
-
-.t_canvas {
-  background-color: white;
-  width: 500px;
-  height: 500px;
-  border: solid 2px var(--ui_border);
-}
-
-.t_rightui {
-  width: 10vh;
-  height: 500px;
-  background-color: var(--ui_background);
-  border: solid 2px var(--ui_border);
-}
-
-.t_footer {
-  height: 5vh;
-  background-color: var(--ui_background);
-  border: solid 2px var(--ui_border);
+  /* background: black; */
+  width: 900px; 
+  height: 450px; 
+  border: 2px solid white;
+  z-index: 2;
 }
