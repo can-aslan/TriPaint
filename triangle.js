@@ -17,15 +17,14 @@ var lastMouseX;
 var lastMouseY;
 var isOperating = false;
 var lastOpWasUndoOrRedo = false;
-var curOperation;
 var strokes = [];
 var undoneStrokes = [];
 var currentStroke = 0;
-var operations = [];
-var undoneOperations = [];
 var allVertices = [];
 var theBuffer;
 var theColorBuffer;
+var currentColorVec4 = [];
+var currentColor = vec4(1.0, 0.0, 0.0, 1.0);
 
 const StrokeType = {
     Draw: "draw",
@@ -34,8 +33,9 @@ const StrokeType = {
 }
 
 class Stroke {
-    constructor(triangle, type) {
+    constructor(triangle, color, type) {
         this.triangle = triangle;
+        this.color = color;
 
         switch (type) {
             case StrokeType.Draw:
@@ -50,8 +50,6 @@ class Stroke {
         }
     }
 }
-
-var currentColorVec4 = [];
 
 class Point {
     constructor(x, y) {
@@ -123,22 +121,12 @@ function draw(event, canvas) {
         return;
     }
     
-    /*
-    if (operations[curOperation] === undefined) {
-        operations[curOperation] = 0;
-    }
-
-    if (lastOpWasUndoOrRedo) { // If drawing right after undo, remove previous undone ops
-        undoneOperations.splice(0, undoneOperations.length);
-    }
-    */
-
     if (strokes[currentStroke] === undefined) {
         strokes[currentStroke] = [];
     }
 
     if (lastOpWasUndoOrRedo) { // If drawing right after undo, remove previous undone ops
-        undoneOperations.splice(0, undoneOperations.length);
+        undoneStrokes.splice(0, undoneStrokes.length);
     }
     
     const rect = canvas.getBoundingClientRect();
@@ -214,23 +202,24 @@ function draw(event, canvas) {
         cellClicked.p5
     ];
 
-    if (isDrawing) {
-        operations[curOperation] = operations[curOperation] + 3;
-    
+    if (isDrawing) {    
         allVertices.push(clickedTriangle[0]);
         allVertices.push(clickedTriangle[1]);
         allVertices.push(clickedTriangle[2]);
 
-        strokes[currentStroke].push(new Stroke(clickedTriangle, StrokeType.Draw));
+        currentColorVec4.push(currentColor);
+        currentColorVec4.push(currentColor);
+        currentColorVec4.push(currentColor);
+
+        strokes[currentStroke].push(new Stroke(clickedTriangle, currentColor, StrokeType.Draw));
 
         gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, flatten(allVertices), gl.STATIC_DRAW);
     }
     else if (isErasing) {
         for (let i = 0; i < allVertices.length; i = i + 3) {
-            console.log(isSameTriangle(i, clickedTriangle));
             if (isSameTriangle(i, clickedTriangle)) {
-                strokes[currentStroke].push(new Stroke(allVertices.splice(i, 3), StrokeType.Erase));
+                strokes[currentStroke].push(new Stroke(allVertices.splice(i, 3), currentColorVec4.splice(i, 3)[0], StrokeType.Erase));
             }
         }
     }
@@ -272,36 +261,77 @@ function isVertexInArray(x, y, verticesToRemove) {
 }
 
 function undoLastStroke() {
-    // console.log("Num of buffers: " + allBuffers.length);
-    // console.log("Num of ops to remove: " + operations[curOperation]);
+    if (currentStroke <= 0) { return; }
     
-    if (curOperation <= 0) { return; }
+    var undoneStroke = strokes.splice(currentStroke - 1, 1);
+    undoneStrokes.push(undoneStroke[0]);
 
-    const undoneOperation = allBuffers.splice(allBuffers.length - operations[curOperation - 1], operations[curOperation - 1]);
-    
-    operations[curOperation - 1] = 0;
+    for (let index = 0; index < undoneStroke[0].length; index++) {
+        var currentStrokeObj = undoneStroke[0][index];
+        var curTriangle = currentStrokeObj.triangle;
+        var curColor = currentStrokeObj.color;
 
-    undoneOperations.push(undoneOperation);
-    // console.log(undoneOperations);
+        if (currentStrokeObj.type == StrokeType.Draw) {
+            for (let i = 0; i < allVertices.length; i = i + 3) {
+                if (currentColorVec4[i] == curColor && isSameTriangle(i, curTriangle)) {
+                    allVertices.splice(i, 3);
+                    currentColorVec4.splice(i, 3);
 
-    curOperation--;
+                    break;
+                }
+            }
+        }
+        else if (currentStrokeObj.type == StrokeType.Erase) {
+            allVertices.push(curTriangle[0]);
+            allVertices.push(curTriangle[1]);
+            allVertices.push(curTriangle[2]);
+
+            currentColorVec4.push(curColor);
+            currentColorVec4.push(curColor);
+            currentColorVec4.push(curColor);
+        }
+    }
+
+    currentStroke--;
 
     lastOpWasUndoOrRedo = true;
     render();
 }
 
 function redoLastUndoneStroke() {
-    if (undoneOperations.length < 1) { return; }
+    if (undoneStrokes.length < 1) { return; }
 
-    curOperation++;
-    operations[curOperation - 1] = undoneOperations[undoneOperations.length - 1].length;
+    var redoneStroke = undoneStrokes.splice(undoneStrokes.length - 1, 1);
 
-    for (let i = 0; i < undoneOperations[undoneOperations.length - 1].length; i++) {
-        allBuffers.push(undoneOperations[undoneOperations.length - 1][i]);
+    for (let index = 0; index < redoneStroke[0].length; index++) {
+        var currentStrokeObj = redoneStroke[0][index];
+        var curTriangle = currentStrokeObj.triangle;
+        var curColor = currentStrokeObj.color;
+
+        if (currentStrokeObj.type == StrokeType.Draw) {
+            allVertices.push(curTriangle[0]);
+            allVertices.push(curTriangle[1]);
+            allVertices.push(curTriangle[2]);
+
+            currentColorVec4.push(curColor);
+            currentColorVec4.push(curColor);
+            currentColorVec4.push(curColor);
+        }
+        else if (currentStrokeObj.type == StrokeType.Erase) {
+            for (let i = 0; i < allVertices.length; i = i + 3) {
+                if (currentColorVec4[i] == curColor && isSameTriangle(i, curTriangle)) {
+                    allVertices.splice(i, 3);
+                    currentColorVec4.splice(i, 3);
+
+                    break;
+                }
+            }
+        }
     }
 
-    undoneOperations.splice(undoneOperations.length - 1, 1);
-    
+    strokes.push(redoneStroke[0]);
+    currentStroke++;
+
     lastOpWasUndoOrRedo = true;
     render();
 }
@@ -322,12 +352,7 @@ function resetAllModes() {
 }
 
 function setTriangleColor(r, g, b) {
-    const currentColor = vec4(r, g, b, 1.0);
-
-    currentColorVec4 = [];
-    currentColorVec4.push(currentColor);
-    currentColorVec4.push(currentColor);
-    currentColorVec4.push(currentColor);
+    currentColor = vec4(r, g, b, 1.0);
 }
 
 function pickColor(event) {
@@ -364,9 +389,8 @@ function pickColorFromPicker(event) {
 }
 
 window.onload = function init() {
-    curOperation = 0;
-    operations[curOperation] = 0;
-    
+    currentStroke = 0;
+
     var undoButton = document.getElementById("undobutton");
     undoButton.addEventListener("click", undoLastStroke);
 
@@ -404,7 +428,6 @@ window.onload = function init() {
         isOperating = false;
         isMouseDown = false;
 
-        curOperation++;
         currentStroke++;
     });
 
