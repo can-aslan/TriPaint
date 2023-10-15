@@ -185,14 +185,26 @@ function draw(event, canvas) {
         var vPosition = gl.getAttribLocation( program, "vPosition" );
         gl.vertexAttribPointer( vPosition, 2, gl.FLOAT, false, 0, 0 );
         gl.enableVertexAttribArray( vPosition );
-    
-        lastOpWasUndoOrRedo = false;
     }
     else if (isErasing) {
-        // console.log(allBuffers);
+        console.log(allBuffers);
+        console.log(allBuffers[0]);
+        console.log(allBuffers[0].x);
     }
     
+    lastOpWasUndoOrRedo = false;
     render();
+}
+
+function isVertexInArray(x, y, verticesToRemove) {
+    for (let i = 0; i < verticesToRemove.length; i += 2) {
+        const removeX = verticesToRemove[i];
+        const removeY = verticesToRemove[i + 1];
+        if (x === removeX && y === removeY) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function undoLastStroke() {
