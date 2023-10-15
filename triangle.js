@@ -1,3 +1,6 @@
+const GRID_SIZE = 15;
+const RGB_COLOR_RANGE = 255.0
+
 var gl;
 var isDrawing = true; // defualt mode
 var isErasing = false;
@@ -6,7 +9,6 @@ var allBuffers = [];
 var pointsGrid = [];
 var glGrid = [];
 var gridCells = [];
-const GRID_SIZE = 15;
 var program;
 var zoom = 1.0;
 var panX = 0.0;
@@ -23,6 +25,7 @@ var operations = [];
 var undoneOperations = [];
 var allVertices = [];
 var theBuffer;
+var theColorBuffer;
 
 const StrokeType = {
     Draw: "draw",
@@ -47,6 +50,8 @@ class Stroke {
         }
     }
 }
+
+var currentColorVec4 = [];
 
 class Point {
     constructor(x, y) {
@@ -316,6 +321,48 @@ function resetAllModes() {
     isErasing = false;
 }
 
+function setTriangleColor(r, g, b) {
+    const currentColor = vec4(r, g, b, 1.0);
+
+    currentColorVec4 = [];
+    currentColorVec4.push(currentColor);
+    currentColorVec4.push(currentColor);
+    currentColorVec4.push(currentColor);
+}
+
+function pickColor(event) {
+    // const selectedColor = event.target.style.backgroundColor;
+    const selectedColor = getComputedStyle(event.target).backgroundColor;
+    console.log("aloo")
+    console.log(selectedColor)
+
+    const colorComponents = selectedColor
+        .replace("rgb(", "")
+        .replace(")", "")
+        .split(",");
+
+    const r = parseFloat(colorComponents[0].trim()) / RGB_COLOR_RANGE;
+    const g = parseFloat(colorComponents[1].trim()) / RGB_COLOR_RANGE;
+    const b = parseFloat(colorComponents[2].trim()) / RGB_COLOR_RANGE;
+
+    // set current color
+    setTriangleColor(r, g, b);
+}
+
+function pickColorFromPicker(event) {
+    const selectedColorValue = event.target.value
+
+    // convert hex to rgb
+    hex = selectedColorValue.replace("#", "");
+
+    const r = parseInt(hex.substring(0, 2), 16) / RGB_COLOR_RANGE;
+    const g = parseInt(hex.substring(2, 4), 16) / RGB_COLOR_RANGE;
+    const b = parseInt(hex.substring(4, 6), 16) / RGB_COLOR_RANGE;
+    
+    // set current color
+    setTriangleColor(r, g, b);
+}
+
 window.onload = function init() {
     curOperation = 0;
     operations[curOperation] = 0;
@@ -331,6 +378,12 @@ window.onload = function init() {
 
     var pencilButton = document.getElementById("pencilbutton");
     pencilButton.addEventListener("click", drawMode);
+
+    var colorOptions = document.querySelectorAll('.color-option');
+    colorOptions.forEach((option) => {option.addEventListener("click", pickColor)})
+
+    var colorPicker = document.getElementById("colorpicker");
+    colorPicker.addEventListener("input", pickColorFromPicker);
 
     var canvas = document.getElementById( "gl_canvas" );
     canvas.width = 900;
@@ -393,6 +446,9 @@ window.onload = function init() {
 
     theBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
+  
+    theColorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, theColorBuffer);
 };
 
 function render() {
@@ -405,6 +461,13 @@ function render() {
     var vPosition = gl.getAttribLocation(program, "vPosition");
     gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(vPosition);
+  
+    gl.bindBuffer(gl.ARRAY_BUFFER, theColorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(currentColorVec4), gl.STATIC_DRAW);
+  
+    var vColor = gl.getAttribLocation(program, "vColor");
+    gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vColor);
 
     gl.drawArrays(gl.TRIANGLES, 0, allVertices.length);
 }

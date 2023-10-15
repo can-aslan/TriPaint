@@ -18,14 +18,20 @@
         type = "image/x-icon"> 
     <script id="vertex-shader" type="x-shader/x-vertex">
       attribute vec4 vPosition;
+      attribute vec4 vColor;
+
+      varying vec4 fColor;
       void main() {
         gl_Position = vPosition;
+        fColor = vColor;
       }
     </script>
     <script id="fragment-shader" type="x-shader/x-fragment">
       precision mediump float;
+
+      varying vec4 fColor;
       void main() {
-        gl_FragColor = vec4( 1.0, 0.0, 0.0, 1.0 );
+        gl_FragColor = fColor;
       }
     </script>
     <script type="text/javascript" src="./webgl-utils.js"></script>
@@ -82,7 +88,18 @@
         <canvas class="gl_canvas_class" id="gl_canvas" width="900" height="900" style="width: 900px; height: 900px;">Your browser doesn't support the HTML5 canvas element!</canvas>
       </div>
 
-      <div class="right-bar"></div>
+      <div class="right-bar">
+        <div class="color-picker-menu">
+          <div class="color-option" id="cop1" style="background-color: black;"></div>
+          <div class="color-option" id="cop2"></div>
+          <div class="color-option" id="cop3"></div>
+          <div class="color-option" id="cop4"></div>
+          <div class="color-option" id="cop5"></div>
+          <div class="color-option" id="cop6"></div>
+          <input type="color" id="colorpicker" value="#0000ff">
+        </div>
+        <div class="layers-menu"></div>
+      </div>
       <div class="bottom-bar"></div>
     </div>
   </body>
