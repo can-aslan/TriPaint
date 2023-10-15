@@ -28,6 +28,7 @@ var theBuffer;
 var theColorBuffer;
 var currentColorVec4 = [];
 var currentColor = vec4(1.0, 0.0, 0.0, 1.0);
+var currentColorHTMLId = null;
 
 var editButtonsToBeUpdated = []
 
@@ -412,10 +413,14 @@ function setTriangleColor(r, g, b) {
 }
 
 function pickColor(event) {
-    // const selectedColor = event.target.style.backgroundColor;
+    if (currentColorHTMLId != null) {
+        document.getElementById(currentColorHTMLId).style.border = "transparent"
+    }
+
+    currentColorHTMLId = event.target.id;
+
+    event.target.style.border = "2px solid white";
     const selectedColor = getComputedStyle(event.target).backgroundColor;
-    console.log("aloo")
-    console.log(selectedColor)
 
     const colorComponents = selectedColor
         .replace("rgb(", "")
@@ -501,7 +506,7 @@ window.onload = function init() {
     })});
 
     var colorOptions = document.querySelectorAll('.color-option');
-    colorOptions.forEach((option) => {option.addEventListener("click", pickColor)})
+    colorOptions.forEach((option) => {option.addEventListener("click", pickColor)});
 
     var colorPicker = document.getElementById("colorpicker");
     colorPicker.addEventListener("input", pickColorFromPicker);
