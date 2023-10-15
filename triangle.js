@@ -1,9 +1,12 @@
 const GRID_SIZE = 15;
-const RGB_COLOR_RANGE = 255.0
+const RGB_COLOR_RANGE = 255.0;
+const CLICKED_ICON_BACKGROUND = "#626366";
+const ICON_BACKGROUND = "transparent";
 
 var gl;
 var isDrawing = true; // defualt mode
 var isErasing = false;
+var isSelecting = false;
 var isMouseDown = false;
 var allBuffers = [];
 var pointsGrid = [];
@@ -25,6 +28,8 @@ var theBuffer;
 var theColorBuffer;
 var currentColorVec4 = [];
 var currentColor = vec4(1.0, 0.0, 0.0, 1.0);
+
+var editButtonsToBeUpdated = []
 
 const StrokeType = {
     Draw: "draw",
@@ -261,6 +266,8 @@ function isVertexInArray(x, y, verticesToRemove) {
 }
 
 function undoLastStroke() {
+    updateButtonBackground();
+  
     if (currentStroke <= 0) { return; }
     
     var undoneStroke = strokes.splice(currentStroke - 1, 1);
@@ -299,6 +306,8 @@ function undoLastStroke() {
 }
 
 function redoLastUndoneStroke() {
+    updateButtonBackground();
+    
     if (undoneStrokes.length < 1) { return; }
 
     var redoneStroke = undoneStrokes.splice(undoneStrokes.length - 1, 1);
@@ -336,19 +345,66 @@ function redoLastUndoneStroke() {
     render();
 }
 
-function eraseMode() {
+function eraseMode(eraserButton) {
+    updateButtonBackground(eraserButton);
     resetAllModes();
     isErasing = true;
 }
 
-function drawMode() {
+function drawMode(pencilButton) {
+    updateButtonBackground(pencilButton);
     resetAllModes();
     isDrawing = true;
+}
+
+function selectMode(selectionButton) {
+    updateButtonBackground(selectionButton);
+    resetAllModes();
+    isSelecting = true;
+}
+
+function cutSelection() {
+    updateButtonBackground();
+    resetAllModes();
+    isDrawing = false;
+}
+
+function copySelection() {
+    updateButtonBackground();
+    resetAllModes();
+    isDrawing = false;
+}
+
+function pasteSelection() {
+    updateButtonBackground();
+    resetAllModes();
+    isDrawing = false;
+}
+
+function openFile() {
+    updateButtonBackground();
+    resetAllModes();
+    isDrawing = false;
+}
+
+function saveFile() {
+    updateButtonBackground();
+    resetAllModes();
+    isDrawing = false;
+}
+
+function updateButtonBackground(button = null) {
+    editButtonsToBeUpdated.forEach(btn => btn.style.backgroundColor = ICON_BACKGROUND);
+
+    if (button != null) {
+        button.style.backgroundColor = CLICKED_ICON_BACKGROUND;
+    }
 }
 
 function resetAllModes() {
     isDrawing = false;
     isErasing = false;
+    isSelecting = false;
 }
 
 function setTriangleColor(r, g, b) {
@@ -396,12 +452,53 @@ window.onload = function init() {
 
     var redoButton = document.getElementById("redobutton");
     redoButton.addEventListener("click", redoLastUndoneStroke);
+    
+    var fileButton = document.getElementById("filebutton");
+    fileButton.addEventListener("click", openFile);
+    
+    var saveButton = document.getElementById("savebutton");
+    saveButton.addEventListener("click", saveFile);
+    
+    var cutButton = document.getElementById("cutbutton");
+    cutButton.addEventListener("click", cutSelection);
+    
+    var copyButton = document.getElementById("copybutton");
+    copyButton.addEventListener("click", copySelection);
+    
+    var pasteButton = document.getElementById("pastebutton");
+    pasteButton.addEventListener("click", pasteSelection);
 
     var eraserButton = document.getElementById("eraserbutton");
-    eraserButton.addEventListener("click", eraseMode);
+    eraserButton.addEventListener("click", function() {
+        eraseMode(eraserButton);
+    });
 
     var pencilButton = document.getElementById("pencilbutton");
-    pencilButton.addEventListener("click", drawMode);
+    pencilButton.addEventListener("click", function() {
+        drawMode(pencilButton);
+    });
+   
+    var selectionButton = document.getElementById("selectionbutton");
+    selectionButton.addEventListener("click", function() {
+        selectMode(selectionButton);
+    });
+
+    editButtonsToBeUpdated.push(eraserButton);
+    editButtonsToBeUpdated.push(pencilButton);
+    editButtonsToBeUpdated.push(selectionButton);
+
+    editButtonsToBeUpdated.forEach((btn) => {btn.addEventListener("mouseenter", () => {
+        btn.style.backgroundColor = CLICKED_ICON_BACKGROUND;
+    })});
+
+    editButtonsToBeUpdated.forEach((btn) => {btn.addEventListener("mouseleave", () => {
+        if (!((btn == eraserButton && isErasing)
+            || (btn == pencilButton && isDrawing)
+            || (btn == selectionButton && isSelecting))) {
+
+            btn.style.backgroundColor = ICON_BACKGROUND;        
+        }        
+    })});
 
     var colorOptions = document.querySelectorAll('.color-option');
     colorOptions.forEach((option) => {option.addEventListener("click", pickColor)})
