@@ -16,8 +16,37 @@ var lastMouseY;
 var isOperating = false;
 var lastOpWasUndoOrRedo = false;
 var curOperation;
+var strokes = [];
+var undoneStrokes = [];
+var currentStroke = 0;
 var operations = [];
 var undoneOperations = [];
+var allVertices = [];
+var theBuffer;
+
+const StrokeType = {
+    Draw: "draw",
+    Erase: "erase",
+    Unknown: "unknown"
+}
+
+class Stroke {
+    constructor(triangle, type) {
+        this.triangle = triangle;
+
+        switch (type) {
+            case StrokeType.Draw:
+                this.type = StrokeType.Draw;
+                break;
+            case StrokeType.Erase:
+                this.type = StrokeType.Erase;
+                break;
+            default:
+                this.type = StrokeType.Unknown;
+                break;
+        }
+    }
+}
 
 class Point {
     constructor(x, y) {
@@ -89,6 +118,7 @@ function draw(event, canvas) {
         return;
     }
     
+    /*
     if (operations[curOperation] === undefined) {
         operations[curOperation] = 0;
     }
@@ -96,7 +126,16 @@ function draw(event, canvas) {
     if (lastOpWasUndoOrRedo) { // If drawing right after undo, remove previous undone ops
         undoneOperations.splice(0, undoneOperations.length);
     }
+    */
 
+    if (strokes[currentStroke] === undefined) {
+        strokes[currentStroke] = [];
+    }
+
+    if (lastOpWasUndoOrRedo) { // If drawing right after undo, remove previous undone ops
+        undoneOperations.splice(0, undoneOperations.length);
+    }
+    
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
@@ -171,29 +210,49 @@ function draw(event, canvas) {
     ];
 
     if (isDrawing) {
-        operations[curOperation] = operations[curOperation] + 1;
+        operations[curOperation] = operations[curOperation] + 3;
     
-        // Load the data into the GPU 
-        var bufferId = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
-        gl.bufferData(gl.ARRAY_BUFFER, flatten(clickedTriangle), gl.STATIC_DRAW);
-        allBuffers.push(bufferId);
-    
-        // console.log(clickedTriangle);
-    
-        // Associate out shader variables with our data buffer
-        var vPosition = gl.getAttribLocation( program, "vPosition" );
-        gl.vertexAttribPointer( vPosition, 2, gl.FLOAT, false, 0, 0 );
-        gl.enableVertexAttribArray( vPosition );
+        allVertices.push(clickedTriangle[0]);
+        allVertices.push(clickedTriangle[1]);
+        allVertices.push(clickedTriangle[2]);
+
+        strokes[currentStroke].push(new Stroke(clickedTriangle, StrokeType.Draw));
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, flatten(allVertices), gl.STATIC_DRAW);
     }
     else if (isErasing) {
-        console.log(allBuffers);
-        console.log(allBuffers[0]);
-        console.log(allBuffers[0].x);
+        for (let i = 0; i < allVertices.length; i = i + 3) {
+            console.log(isSameTriangle(i, clickedTriangle));
+            if (isSameTriangle(i, clickedTriangle)) {
+                strokes[currentStroke].push(new Stroke(allVertices.splice(i, 3), StrokeType.Erase));
+            }
+        }
     }
-    
+
     lastOpWasUndoOrRedo = false;
     render();
+}
+
+// Checks if the given clicked triangle exists in the
+// first three (after allVerticesStartingIndex) items in the allVertices array
+function isSameTriangle(allVerticesStartingIndex, clickedTriangle) {
+    let clickedShortestExists =
+        allVertices[allVerticesStartingIndex] == clickedTriangle[0]
+        || allVertices[allVerticesStartingIndex + 1] == clickedTriangle[0]
+        || allVertices[allVerticesStartingIndex + 2] == clickedTriangle[0];
+
+    let clickedSecondShortestExists =
+        allVertices[allVerticesStartingIndex] == clickedTriangle[1]
+        || allVertices[allVerticesStartingIndex + 1] == clickedTriangle[1]
+        || allVertices[allVerticesStartingIndex + 2] == clickedTriangle[1];
+
+    let clickedCenterExists =
+        allVertices[allVerticesStartingIndex] == clickedTriangle[2]
+        || allVertices[allVerticesStartingIndex + 1] == clickedTriangle[2]
+        || allVertices[allVerticesStartingIndex + 2] == clickedTriangle[2];
+
+    return clickedShortestExists && clickedSecondShortestExists && clickedCenterExists;
 }
 
 function isVertexInArray(x, y, verticesToRemove) {
@@ -293,6 +352,7 @@ window.onload = function init() {
         isMouseDown = false;
 
         curOperation++;
+        currentStroke++;
     });
 
     canvas.addEventListener("mousedown", (event) => {
@@ -331,47 +391,20 @@ window.onload = function init() {
         }
     }
 
-    /*
-    var all = []
-    for (let i = 0; i < 2*GRID_SIZE; i++) {
-        for (let j = 0; j < 2*GRID_SIZE; j++) {
-            all.push(convertCellToArray(gridCells[i][j])[0]);
-            all.push(convertCellToArray(gridCells[i][j])[1]);
-            all.push(convertCellToArray(gridCells[i][j])[4]);
-            all.push(convertCellToArray(gridCells[i][j])[2]);
-            all.push(convertCellToArray(gridCells[i][j])[3]);
-        }
-    }
-
-    //  Configure WebGL
-    gl.viewport( 0, 0, canvas.width, canvas.height );
-    gl.clearColor( 1.0, 1.0, 1.0, 1.0 );        
-
-    // Load the data into the GPU        
-    // var bufferId = gl.createBuffer();
-    // gl.bindBuffer( gl.ARRAY_BUFFER, bufferId );
-    // gl.bufferData( gl.ARRAY_BUFFER, flatten(all), gl.STATIC_DRAW ); 
-        
-    // Associate out shader variables with our data buffer
-    // var vPosition = gl.getAttribLocation( program, "vPosition" );
-    // gl.vertexAttribPointer( vPosition, 2, gl.FLOAT, false, 0, 0 );
-    // gl.enableVertexAttribArray( vPosition );    
-    
-    //render();
-    */
+    theBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
 };
 
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT); 
     
-    for (let i = 0; i < allBuffers.length; i++) {
-        gl.bindBuffer(gl.ARRAY_BUFFER, allBuffers[i]);
+    gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(allVertices), gl.STATIC_DRAW); 
 
-        // Associate shader variables and draw the current buffer
-        var vPosition = gl.getAttribLocation(program, "vPosition");
-        gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(vPosition);
+    // Associate shader variables and draw the current buffer
+    var vPosition = gl.getAttribLocation(program, "vPosition");
+    gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vPosition);
 
-        gl.drawArrays(gl.TRIANGLES, 0, 3); // Assuming each buffer contains a single triangle
-    }
+    gl.drawArrays(gl.TRIANGLES, 0, allVertices.length);
 }
