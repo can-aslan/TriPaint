@@ -1,4 +1,6 @@
 var gl;
+var isDrawing = true; // defualt mode
+var isErasing = false;
 var isMouseDown = false;
 var allBuffers = [];
 var pointsGrid = [];
@@ -9,10 +11,10 @@ var program;
 var zoom = 1.0;
 var panX = 0.0;
 var panY = 0.0;
-var mouseDown = false;
 var lastMouseX;
 var lastMouseY;
 var isOperating = false;
+var lastOpWasUndoOrRedo = false;
 var curOperation;
 var operations = [];
 var undoneOperations = [];
@@ -37,15 +39,15 @@ class Cell {
     }
 }
 
-function moveCanvasMouseDown (event) {
-    mouseDown = true;
+function moveCanvasIsMouseDown (event) {
+    isMouseDown = true;
     lastMouseX = event.clientX;
     lastMouseY = event.clientY;
 }
 
 function moveCanvasMouseDrag (event) {
     // if mouse is not down, don't do anything
-    if (!mouseDown) {
+    if (!isMouseDown) {
         return;
     }
 
@@ -64,7 +66,7 @@ function moveCanvasMouseDrag (event) {
 }
 
 function moveCanvasMouseUp (event) {
-    mouseDown = false;
+    isMouseDown = false;
 }
 
 function convertPointToWebGLCoordinates(point) {
@@ -83,26 +85,32 @@ function distanceToPoint(x1, y1, point) {
 }
 
 function draw(event, canvas) {
+    if (!isMouseDown) {
+        return;
+    }
+    
     if (operations[curOperation] === undefined) {
         operations[curOperation] = 0;
+    }
+
+    if (lastOpWasUndoOrRedo) { // If drawing right after undo, remove previous undone ops
+        undoneOperations.splice(0, undoneOperations.length);
     }
 
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
+    // canvasX -> mouseX, canvasY -> mouseY
     const canvasX = (x / canvas.width) * 2 - 1;
     const canvasY = -((y / canvas.height) * 2 - 1);
 
-    // console.log("Mouse clicked at (x, y): ", canvasX, canvasY);
-
+    // gridX -> clicked x coordinate (in terms of the grid), girdY -> clicked y coordinate (in terms of the grid)
     const gridX = Math.floor((canvasX + 1) * GRID_SIZE) <= -0 ? 0 : Math.floor((canvasX + 1) * GRID_SIZE);
     const gridY = Math.floor((canvasY + 1) * GRID_SIZE) <= -0 ? 0 : Math.floor((canvasY + 1) * GRID_SIZE);
 
-    // console.log("Mouse clicked on grid cell (x, y): ", gridX, gridY);
-
+    // Clicked cell (4 sub-triangles)
     const cellClicked = gridCells[gridX][gridY];
-    // console.log("Clicked on grid cell:", cellClicked);
 
     let dtp1 = distanceToPoint(canvasX, canvasY, cellClicked.p1);
     let dtp2 = distanceToPoint(canvasX, canvasY, cellClicked.p2);
@@ -155,28 +163,35 @@ function draw(event, canvas) {
             break;
     }
 
+    // Clicked sub-triangle
     var clickedTriangle = [
         shortestPt,
         secondShortestPt,
         cellClicked.p5
     ];
 
-    operations[curOperation] = operations[curOperation] + 1;
-    // console.log("Increased num of ops. New no: " + operations[curOperation] + "\n Num of buffers: " + allBuffers.length);
-
-    // Load the data into the GPU 
-    var bufferId = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
-    gl.bufferData(gl.ARRAY_BUFFER, flatten(clickedTriangle), gl.STATIC_DRAW);
-    allBuffers.push(bufferId);
-
-    // console.log(clickedTriangle);
-
-    // Associate out shader variables with our data buffer
-    var vPosition = gl.getAttribLocation( program, "vPosition" );
-    gl.vertexAttribPointer( vPosition, 2, gl.FLOAT, false, 0, 0 );
-    gl.enableVertexAttribArray( vPosition );
-
+    if (isDrawing) {
+        operations[curOperation] = operations[curOperation] + 1;
+    
+        // Load the data into the GPU 
+        var bufferId = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
+        gl.bufferData(gl.ARRAY_BUFFER, flatten(clickedTriangle), gl.STATIC_DRAW);
+        allBuffers.push(bufferId);
+    
+        // console.log(clickedTriangle);
+    
+        // Associate out shader variables with our data buffer
+        var vPosition = gl.getAttribLocation( program, "vPosition" );
+        gl.vertexAttribPointer( vPosition, 2, gl.FLOAT, false, 0, 0 );
+        gl.enableVertexAttribArray( vPosition );
+    
+        lastOpWasUndoOrRedo = false;
+    }
+    else if (isErasing) {
+        // console.log(allBuffers);
+    }
+    
     render();
 }
 
@@ -195,6 +210,7 @@ function undoLastStroke() {
 
     curOperation--;
 
+    lastOpWasUndoOrRedo = true;
     render();
 }
 
@@ -209,8 +225,24 @@ function redoLastUndoneStroke() {
     }
 
     undoneOperations.splice(undoneOperations.length - 1, 1);
-
+    
+    lastOpWasUndoOrRedo = true;
     render();
+}
+
+function eraseMode() {
+    resetAllModes();
+    isErasing = true;
+}
+
+function drawMode() {
+    resetAllModes();
+    isDrawing = true;
+}
+
+function resetAllModes() {
+    isDrawing = false;
+    isErasing = false;
 }
 
 window.onload = function init() {
@@ -218,14 +250,16 @@ window.onload = function init() {
     operations[curOperation] = 0;
     
     var undoButton = document.getElementById("undobutton");
-    undoButton.addEventListener("click", (event) => {
-        undoLastStroke();
-    });
+    undoButton.addEventListener("click", undoLastStroke);
 
     var redoButton = document.getElementById("redobutton");
-    redoButton.addEventListener("click", (event) => {
-        redoLastUndoneStroke();
-    });
+    redoButton.addEventListener("click", redoLastUndoneStroke);
+
+    var eraserButton = document.getElementById("eraserbutton");
+    eraserButton.addEventListener("click", eraseMode);
+
+    var pencilButton = document.getElementById("pencilbutton");
+    pencilButton.addEventListener("click", drawMode);
 
     var canvas = document.getElementById( "gl_canvas" );
     canvas.width = 900;
