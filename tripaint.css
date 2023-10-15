@@ -36,22 +36,61 @@ code {
   position: fixed;
   z-index: 10;
   padding: 10px;
+  background-color: #353535;
 }
 
 .top-bar {
   top: 0;
   left: 0;
   right: 0;
-  background: blue;
-  height: 15px;
+  height: 18px;
+  z-index: 11;
+  background-color: #212121;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-direction: row;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: row;
+  padding: 0px;
+}
+
+.header img {
+  width: 35px;
+}
+
+.file-opr {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: row;
+  padding: 0px;
+  float: right;
+  gap: 10px;
+  gap: 10px;
+}
+
+.file-opr img {
+  width: 10px;
+}
+
+.header h3 {
+  font-size: 25px;
+  font-family: "Consolas", Helvetica, sans-serif;
+  color: #dcedfc;
 }
 
 .bottom-bar {
   bottom: 0;
   left: 0;
   right: 0;
-  background: pink;
   height: 10px;
+  background-color: #252525;
 }
 
 .left-bar {
@@ -59,7 +98,11 @@ code {
   left: 0;
   bottom: 0;
   width: 30px;
-  background: aqua;
+  padding-top: 85px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .right-bar {
@@ -67,7 +110,6 @@ code {
   right: 0;
   bottom: 0;
   width: 120px;
-  background: greenyellow;
 }
 
 .canvas-area {
@@ -76,7 +118,7 @@ code {
   align-items: center;
   justify-content: center;
   flex-grow: 1;
-  background: purple;
+  background: #656565;
   height: 100vh;
 }
 
@@ -86,4 +128,29 @@ code {
   height: 900px; 
   border: 2px solid white;
   z-index: 2;
+}
+
+.icon-button {
+  background-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 10px;
+  border: transparent;
+}
+
+.icon-button:hover {
+  background-color: #626366;
+}
+
+.icon-button img {
+  width: 30px;
+  height: 30px;
+}
+
+.file-button img {
+  width: 25px;
+  height: 25px;
 }
