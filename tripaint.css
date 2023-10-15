@@ -13,6 +13,7 @@ html {
 body {
   margin: 0;
   padding: 0;
+  height: 100vh;
   background-color: var(--background);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -28,62 +29,128 @@ code {
 
 .App {
   height: 45vmax;
-  display: flex;
-  flex-direction: column;
   background-color: var(--background);
+}
+
+.top-bar, .left-bar, .right-bar, .bottom-bar {
+  position: fixed;
+  z-index: 10;
   padding: 10px;
-  gap: 10px;
+  background-color: #353535;
 }
 
-.header_container {
+.top-bar {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 18px;
+  z-index: 11;
+  background-color: #212121;
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  flex-direction: row;
 }
 
-.t_header {
-  flex: 1;
-  height: 8vh;
-  background-color: var(--ui_background);
-  border: solid 2px var(--ui_border);
-}
-
-.content_container {
+.header {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
+  flex-direction: row;
+  padding: 0px;
+}
+
+.header img {
+  width: 35px;
+}
+
+.file-opr {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: row;
+  padding: 0px;
+  float: right;
   gap: 10px;
-  flex: 1;
+  gap: 10px;
 }
 
-.t_leftui {
-  width: 10vh;
-  height: 500px;
-  background-color: var(--ui_background);
-  border: solid 2px var(--ui_border);
+.file-opr img {
+  width: 10px;
 }
 
-#gl_canvas {
-  height: 100%;
-  width: 100%;
+.header h3 {
+  font-size: 25px;
+  font-family: "Consolas", Helvetica, sans-serif;
+  color: #dcedfc;
 }
 
-.t_canvas {
-  background-color: white;
-  width: 500px;
-  height: 500px;
-  border: solid 2px var(--ui_border);
+.bottom-bar {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background-color: #252525;
 }
 
-.t_rightui {
-  width: 10vh;
-  height: 500px;
-  background-color: var(--ui_background);
-  border: solid 2px var(--ui_border);
+.left-bar {
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 30px;
+  padding-top: 85px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.t_footer {
-  height: 5vh;
-  background-color: var(--ui_background);
-  border: solid 2px var(--ui_border);
+.right-bar {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 120px;
+}
+
+.canvas-area {
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 1;
+  background: #656565;
+  height: 100vh;
+}
+
+.gl_canvas_class {
+  background: white;
+  width: 900px; 
+  height: 900px; 
+  border: 2px solid white;
+  z-index: 2;
+}
+
+.icon-button {
+  background-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 10px;
+  border: transparent;
+}
+
+.icon-button:hover {
+  background-color: #626366;
+}
+
+.icon-button img {
+  width: 30px;
+  height: 30px;
+}
+
+.file-button img {
+  width: 25px;
+  height: 25px;
 }
