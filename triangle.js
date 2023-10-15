@@ -1,21 +1,57 @@
+const GRID_SIZE = 15;
+const RGB_COLOR_RANGE = 255.0
+
 var gl;
+var isDrawing = true; // defualt mode
+var isErasing = false;
 var isMouseDown = false;
 var allBuffers = [];
 var pointsGrid = [];
 var glGrid = [];
 var gridCells = [];
-const GRID_SIZE = 15;
 var program;
 var zoom = 1.0;
 var panX = 0.0;
 var panY = 0.0;
-var mouseDown = false;
 var lastMouseX;
 var lastMouseY;
 var isOperating = false;
+var lastOpWasUndoOrRedo = false;
 var curOperation;
+var strokes = [];
+var undoneStrokes = [];
+var currentStroke = 0;
 var operations = [];
 var undoneOperations = [];
+var allVertices = [];
+var theBuffer;
+var theColorBuffer;
+
+const StrokeType = {
+    Draw: "draw",
+    Erase: "erase",
+    Unknown: "unknown"
+}
+
+class Stroke {
+    constructor(triangle, type) {
+        this.triangle = triangle;
+
+        switch (type) {
+            case StrokeType.Draw:
+                this.type = StrokeType.Draw;
+                break;
+            case StrokeType.Erase:
+                this.type = StrokeType.Erase;
+                break;
+            default:
+                this.type = StrokeType.Unknown;
+                break;
+        }
+    }
+}
+
+var currentColorVec4 = [];
 
 class Point {
     constructor(x, y) {
@@ -37,15 +73,15 @@ class Cell {
     }
 }
 
-function moveCanvasMouseDown (event) {
-    mouseDown = true;
+function moveCanvasIsMouseDown (event) {
+    isMouseDown = true;
     lastMouseX = event.clientX;
     lastMouseY = event.clientY;
 }
 
 function moveCanvasMouseDrag (event) {
     // if mouse is not down, don't do anything
-    if (!mouseDown) {
+    if (!isMouseDown) {
         return;
     }
 
@@ -64,7 +100,7 @@ function moveCanvasMouseDrag (event) {
 }
 
 function moveCanvasMouseUp (event) {
-    mouseDown = false;
+    isMouseDown = false;
 }
 
 function convertPointToWebGLCoordinates(point) {
@@ -83,26 +119,42 @@ function distanceToPoint(x1, y1, point) {
 }
 
 function draw(event, canvas) {
+    if (!isMouseDown) {
+        return;
+    }
+    
+    /*
     if (operations[curOperation] === undefined) {
         operations[curOperation] = 0;
     }
 
+    if (lastOpWasUndoOrRedo) { // If drawing right after undo, remove previous undone ops
+        undoneOperations.splice(0, undoneOperations.length);
+    }
+    */
+
+    if (strokes[currentStroke] === undefined) {
+        strokes[currentStroke] = [];
+    }
+
+    if (lastOpWasUndoOrRedo) { // If drawing right after undo, remove previous undone ops
+        undoneOperations.splice(0, undoneOperations.length);
+    }
+    
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
+    // canvasX -> mouseX, canvasY -> mouseY
     const canvasX = (x / canvas.width) * 2 - 1;
     const canvasY = -((y / canvas.height) * 2 - 1);
 
-    // console.log("Mouse clicked at (x, y): ", canvasX, canvasY);
-
+    // gridX -> clicked x coordinate (in terms of the grid), girdY -> clicked y coordinate (in terms of the grid)
     const gridX = Math.floor((canvasX + 1) * GRID_SIZE) <= -0 ? 0 : Math.floor((canvasX + 1) * GRID_SIZE);
     const gridY = Math.floor((canvasY + 1) * GRID_SIZE) <= -0 ? 0 : Math.floor((canvasY + 1) * GRID_SIZE);
 
-    // console.log("Mouse clicked on grid cell (x, y): ", gridX, gridY);
-
+    // Clicked cell (4 sub-triangles)
     const cellClicked = gridCells[gridX][gridY];
-    // console.log("Clicked on grid cell:", cellClicked);
 
     let dtp1 = distanceToPoint(canvasX, canvasY, cellClicked.p1);
     let dtp2 = distanceToPoint(canvasX, canvasY, cellClicked.p2);
@@ -155,29 +207,68 @@ function draw(event, canvas) {
             break;
     }
 
+    // Clicked sub-triangle
     var clickedTriangle = [
         shortestPt,
         secondShortestPt,
         cellClicked.p5
     ];
 
-    operations[curOperation] = operations[curOperation] + 1;
-    // console.log("Increased num of ops. New no: " + operations[curOperation] + "\n Num of buffers: " + allBuffers.length);
+    if (isDrawing) {
+        operations[curOperation] = operations[curOperation] + 3;
+    
+        allVertices.push(clickedTriangle[0]);
+        allVertices.push(clickedTriangle[1]);
+        allVertices.push(clickedTriangle[2]);
 
-    // Load the data into the GPU 
-    var bufferId = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
-    gl.bufferData(gl.ARRAY_BUFFER, flatten(clickedTriangle), gl.STATIC_DRAW);
-    allBuffers.push(bufferId);
+        strokes[currentStroke].push(new Stroke(clickedTriangle, StrokeType.Draw));
 
-    // console.log(clickedTriangle);
+        gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, flatten(allVertices), gl.STATIC_DRAW);
+    }
+    else if (isErasing) {
+        for (let i = 0; i < allVertices.length; i = i + 3) {
+            console.log(isSameTriangle(i, clickedTriangle));
+            if (isSameTriangle(i, clickedTriangle)) {
+                strokes[currentStroke].push(new Stroke(allVertices.splice(i, 3), StrokeType.Erase));
+            }
+        }
+    }
 
-    // Associate out shader variables with our data buffer
-    var vPosition = gl.getAttribLocation( program, "vPosition" );
-    gl.vertexAttribPointer( vPosition, 2, gl.FLOAT, false, 0, 0 );
-    gl.enableVertexAttribArray( vPosition );
-
+    lastOpWasUndoOrRedo = false;
     render();
+}
+
+// Checks if the given clicked triangle exists in the
+// first three (after allVerticesStartingIndex) items in the allVertices array
+function isSameTriangle(allVerticesStartingIndex, clickedTriangle) {
+    let clickedShortestExists =
+        allVertices[allVerticesStartingIndex] == clickedTriangle[0]
+        || allVertices[allVerticesStartingIndex + 1] == clickedTriangle[0]
+        || allVertices[allVerticesStartingIndex + 2] == clickedTriangle[0];
+
+    let clickedSecondShortestExists =
+        allVertices[allVerticesStartingIndex] == clickedTriangle[1]
+        || allVertices[allVerticesStartingIndex + 1] == clickedTriangle[1]
+        || allVertices[allVerticesStartingIndex + 2] == clickedTriangle[1];
+
+    let clickedCenterExists =
+        allVertices[allVerticesStartingIndex] == clickedTriangle[2]
+        || allVertices[allVerticesStartingIndex + 1] == clickedTriangle[2]
+        || allVertices[allVerticesStartingIndex + 2] == clickedTriangle[2];
+
+    return clickedShortestExists && clickedSecondShortestExists && clickedCenterExists;
+}
+
+function isVertexInArray(x, y, verticesToRemove) {
+    for (let i = 0; i < verticesToRemove.length; i += 2) {
+        const removeX = verticesToRemove[i];
+        const removeY = verticesToRemove[i + 1];
+        if (x === removeX && y === removeY) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function undoLastStroke() {
@@ -195,6 +286,7 @@ function undoLastStroke() {
 
     curOperation--;
 
+    lastOpWasUndoOrRedo = true;
     render();
 }
 
@@ -209,8 +301,66 @@ function redoLastUndoneStroke() {
     }
 
     undoneOperations.splice(undoneOperations.length - 1, 1);
-
+    
+    lastOpWasUndoOrRedo = true;
     render();
+}
+
+function eraseMode() {
+    resetAllModes();
+    isErasing = true;
+}
+
+function drawMode() {
+    resetAllModes();
+    isDrawing = true;
+}
+
+function resetAllModes() {
+    isDrawing = false;
+    isErasing = false;
+}
+
+function setTriangleColor(r, g, b) {
+    const currentColor = vec4(r, g, b, 1.0);
+
+    currentColorVec4 = [];
+    currentColorVec4.push(currentColor);
+    currentColorVec4.push(currentColor);
+    currentColorVec4.push(currentColor);
+}
+
+function pickColor(event) {
+    // const selectedColor = event.target.style.backgroundColor;
+    const selectedColor = getComputedStyle(event.target).backgroundColor;
+    console.log("aloo")
+    console.log(selectedColor)
+
+    const colorComponents = selectedColor
+        .replace("rgb(", "")
+        .replace(")", "")
+        .split(",");
+
+    const r = parseFloat(colorComponents[0].trim()) / RGB_COLOR_RANGE;
+    const g = parseFloat(colorComponents[1].trim()) / RGB_COLOR_RANGE;
+    const b = parseFloat(colorComponents[2].trim()) / RGB_COLOR_RANGE;
+
+    // set current color
+    setTriangleColor(r, g, b);
+}
+
+function pickColorFromPicker(event) {
+    const selectedColorValue = event.target.value
+
+    // convert hex to rgb
+    hex = selectedColorValue.replace("#", "");
+
+    const r = parseInt(hex.substring(0, 2), 16) / RGB_COLOR_RANGE;
+    const g = parseInt(hex.substring(2, 4), 16) / RGB_COLOR_RANGE;
+    const b = parseInt(hex.substring(4, 6), 16) / RGB_COLOR_RANGE;
+    
+    // set current color
+    setTriangleColor(r, g, b);
 }
 
 window.onload = function init() {
@@ -218,14 +368,22 @@ window.onload = function init() {
     operations[curOperation] = 0;
     
     var undoButton = document.getElementById("undobutton");
-    undoButton.addEventListener("click", (event) => {
-        undoLastStroke();
-    });
+    undoButton.addEventListener("click", undoLastStroke);
 
     var redoButton = document.getElementById("redobutton");
-    redoButton.addEventListener("click", (event) => {
-        redoLastUndoneStroke();
-    });
+    redoButton.addEventListener("click", redoLastUndoneStroke);
+
+    var eraserButton = document.getElementById("eraserbutton");
+    eraserButton.addEventListener("click", eraseMode);
+
+    var pencilButton = document.getElementById("pencilbutton");
+    pencilButton.addEventListener("click", drawMode);
+
+    var colorOptions = document.querySelectorAll('.color-option');
+    colorOptions.forEach((option) => {option.addEventListener("click", pickColor)})
+
+    var colorPicker = document.getElementById("colorpicker");
+    colorPicker.addEventListener("input", pickColorFromPicker);
 
     var canvas = document.getElementById( "gl_canvas" );
     canvas.width = 900;
@@ -247,6 +405,7 @@ window.onload = function init() {
         isMouseDown = false;
 
         curOperation++;
+        currentStroke++;
     });
 
     canvas.addEventListener("mousedown", (event) => {
@@ -285,47 +444,30 @@ window.onload = function init() {
         }
     }
 
-    /*
-    var all = []
-    for (let i = 0; i < 2*GRID_SIZE; i++) {
-        for (let j = 0; j < 2*GRID_SIZE; j++) {
-            all.push(convertCellToArray(gridCells[i][j])[0]);
-            all.push(convertCellToArray(gridCells[i][j])[1]);
-            all.push(convertCellToArray(gridCells[i][j])[4]);
-            all.push(convertCellToArray(gridCells[i][j])[2]);
-            all.push(convertCellToArray(gridCells[i][j])[3]);
-        }
-    }
-
-    //  Configure WebGL
-    gl.viewport( 0, 0, canvas.width, canvas.height );
-    gl.clearColor( 1.0, 1.0, 1.0, 1.0 );        
-
-    // Load the data into the GPU        
-    // var bufferId = gl.createBuffer();
-    // gl.bindBuffer( gl.ARRAY_BUFFER, bufferId );
-    // gl.bufferData( gl.ARRAY_BUFFER, flatten(all), gl.STATIC_DRAW ); 
-        
-    // Associate out shader variables with our data buffer
-    // var vPosition = gl.getAttribLocation( program, "vPosition" );
-    // gl.vertexAttribPointer( vPosition, 2, gl.FLOAT, false, 0, 0 );
-    // gl.enableVertexAttribArray( vPosition );    
-    
-    //render();
-    */
+    theBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
+  
+    theColorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, theColorBuffer);
 };
 
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT); 
     
-    for (let i = 0; i < allBuffers.length; i++) {
-        gl.bindBuffer(gl.ARRAY_BUFFER, allBuffers[i]);
+    gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(allVertices), gl.STATIC_DRAW); 
 
-        // Associate shader variables and draw the current buffer
-        var vPosition = gl.getAttribLocation(program, "vPosition");
-        gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(vPosition);
+    // Associate shader variables and draw the current buffer
+    var vPosition = gl.getAttribLocation(program, "vPosition");
+    gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vPosition);
+  
+    gl.bindBuffer(gl.ARRAY_BUFFER, theColorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(currentColorVec4), gl.STATIC_DRAW);
+  
+    var vColor = gl.getAttribLocation(program, "vColor");
+    gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vColor);
 
-        gl.drawArrays(gl.TRIANGLES, 0, 3); // Assuming each buffer contains a single triangle
-    }
+    gl.drawArrays(gl.TRIANGLES, 0, allVertices.length);
 }
