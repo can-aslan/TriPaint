@@ -858,6 +858,17 @@ window.onload = function init() {
         updateCanvasScale(event, zoomSlider);
     });
 
+    // load file related events
+    document.getElementById('filebutton').addEventListener('click', () => {
+        document.getElementById('tripaintinput').click();
+    });
+
+    document.getElementById('tripaintinput').addEventListener('change', function () {
+        var selectedFile = this.files[0];
+
+        loadFile(selectedFile);
+    });
+
     canvas = document.getElementById( "gl_canvas" );
     canvasContainer = document.getElementById( "canvas-container" );
     console.log("get container", getComputedStyle(canvasContainer).width)
@@ -1000,31 +1011,79 @@ function moveMode(moveButton) {
 function cutSelection() {
     updateButtonBackground();
     resetAllModes();
-    isDrawing = false;
 }
 
 function copySelection() {
     updateButtonBackground();
     resetAllModes();
-    isDrawing = false;
 }
 
 function pasteSelection() {
     updateButtonBackground();
     resetAllModes();
-    isDrawing = false;
 }
 
 function openFile() {
     updateButtonBackground();
     resetAllModes();
-    isDrawing = false;
 }
 
 function saveFile() {
     updateButtonBackground();
     resetAllModes();
-    isDrawing = false;
+
+    createAndDownloadJSONFile();
+}
+
+function loadFile(file) {
+    if (file) {
+        var reader = new FileReader();
+
+        // Callback function to run after the file is read
+        reader.onload = function(event) {
+            var jsonContent = event.target.result;
+
+            // Parse the JSON data
+            try {
+                var jsonData = JSON.parse(jsonContent);
+
+                console.log(jsonData);
+            } catch (error) {
+                console.error("Error parsing JSON:", error);
+            }
+        };
+
+        // Read the file
+        reader.readAsText(file);
+    }
+}
+
+function createAndDownloadJSONFile() {
+    var jsonData = {
+        name: ["John Doe", "abc", 2],
+        age: 30,
+        email: "john@example.com"
+    };
+
+    // Convert the object to a JSON string          // number of spaces before json values
+    var jsonContent = JSON.stringify(jsonData, null, 2);
+    var blob = new Blob([jsonContent], { type: 'application/json' });
+
+    // Create a URL for the Blob
+    var url = window.URL.createObjectURL(blob);
+
+    // Create an anchor element to trigger the download
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = "canvas.tripaint"; // Set the desired file name with a .json extension
+    document.body.appendChild(a);
+
+    // Click the anchor to start the download
+    a.click();
+
+    // Clean up
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
 }
 
 function renderSelectedTriangles() {
