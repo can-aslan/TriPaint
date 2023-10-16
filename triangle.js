@@ -15,6 +15,8 @@ var isErasing = false;
 var isSelecting = false;
 var isMouseDown = false;
 var isSliding = false;
+var isMoving = false;
+
 var allBuffers = [];
 var pointsGrid = [];
 var glGrid = [];
@@ -111,6 +113,8 @@ function moveCanvasMouseDrag (event) {
     // Update the pan based on mouse drag
     panX += deltaX / (canvas.width / 2 / zoom);
     panY -= deltaY / (canvas.height / 2 / zoom);
+    // panX += deltaX / (canvas.width / 2 / zoom);
+    // panY -= deltaY / (canvas.height / 2 / zoom);
 
     render();
 }
@@ -376,6 +380,12 @@ function selectMode(selectionButton) {
     isSelecting = true;
 }
 
+function moveMode(moveButton) {
+    updateButtonBackground(moveButton);
+    resetAllModes();
+    isMoving = true;
+}
+
 function cutSelection() {
     updateButtonBackground();
     resetAllModes();
@@ -419,6 +429,7 @@ function resetAllModes() {
     isErasing = false;
     isSelecting = false;
     isSliding = false;
+    isMoving = false;
 }
 
 function setTriangleColor(r, g, b) {
@@ -464,6 +475,9 @@ function pickColorFromPicker(event) {
 
 function updateViewMatrix() {
     zoomFactor = zoomFactor.toFixed(2);
+    // viewMatrix = translate([1,1,0])
+    
+    console.log("aloo",viewMatrix)
     // viewMatrix = scale(zoomFactor, zoomFactor, 1.0);
     // viewMatrix = scale(2.0, 2.0, 2.0);
     // viewMatrix = mult(viewMatrix, scalingMatrix);
@@ -575,10 +589,16 @@ window.onload = function init() {
     selectionButton.addEventListener("click", function() {
         selectMode(selectionButton);
     });
+    
+    var moveButton = document.getElementById("movebutton");
+    moveButton.addEventListener("click", function() {
+        moveMode(moveButton);
+    });
 
     editButtonsToBeUpdated.push(eraserButton);
     editButtonsToBeUpdated.push(pencilButton);
     editButtonsToBeUpdated.push(selectionButton);
+    editButtonsToBeUpdated.push(moveButton);
 
     editButtonsToBeUpdated.forEach((btn) => {btn.addEventListener("mouseenter", () => {
         btn.style.backgroundColor = CLICKED_ICON_BACKGROUND;
@@ -588,7 +608,8 @@ window.onload = function init() {
     editButtonsToBeUpdated.forEach((btn) => {btn.addEventListener("mouseleave", () => {
         if (!((btn == eraserButton && isErasing)
             || (btn == pencilButton && isDrawing)
-            || (btn == selectionButton && isSelecting))) {
+            || (btn == selectionButton && isSelecting)
+            || (btn == moveButton && isMoving))) {
 
             btn.style.backgroundColor = ICON_BACKGROUND;        
         }        
@@ -633,26 +654,33 @@ window.onload = function init() {
           }
     });
 
-    
-    
-    
-    canvas.addEventListener("mouseup", (event) => {
+    canvas.addEventListener("mouseup", (event) => {        
         isOperating = false;
         isMouseDown = false;
-
-        currentStroke++;
+        if (isMoving) {
+            console.log("move1");
+        } else {    
+            currentStroke++;
+        }
     });
 
     canvas.addEventListener("mousedown", (event) => {
         isOperating = true;
         isMouseDown = true;
-        draw(event, canvas);
+
+        if (isMoving) {
+            console.log("move2");
+        } else {
+            draw(event, canvas);
+        }        
     });  
 
     canvas.addEventListener("mousemove", (event) => {
-        if (isMouseDown) {
+        if (isMouseDown && isMoving) {
+            console.log("move3");
+        } if (isMouseDown) {
             draw(event, canvas);
-        }
+        }        
     });      
 
     // Setup grids
