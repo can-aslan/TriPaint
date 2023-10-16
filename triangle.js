@@ -964,7 +964,7 @@ window.onload = function init() {
         else if (isSelecting) {
             handleSelectionMouseUp(event, canvas);
         }
-        else {
+        else if (isDrawing || isErasing) {
             currentStroke++;
         }
     });
