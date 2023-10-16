@@ -19,10 +19,11 @@
     <script id="vertex-shader" type="x-shader/x-vertex">
       attribute vec4 vPosition;
       attribute vec4 vColor;
+      uniform mat4 viewMatrix;
 
       varying vec4 fColor;
       void main() {
-        gl_Position = vPosition;
+        gl_Position = viewMatrix * vPosition;
         fColor = vColor;
       }
     </script>
@@ -67,6 +68,9 @@
         <button id="selectionbutton" class="icon-button">
           <img src="./icons/icons8-selection-50.png" alt="Selection Icon">
         </button>
+        <button id="movebutton" class="icon-button">
+          <img src="./icons/icons8-move-50.png" alt="Move Icon">
+        </button>
         <button id="undobutton" class="icon-button">
           <img src="./icons/icons8-undo-50.png" alt="Undo Icon">
         </button>
@@ -84,8 +88,8 @@
         </button>
       </div>
 
-      <div class="canvas-area">
-        <canvas class="gl_canvas_class" id="gl_canvas" width="900" height="900" style="width: 900px; height: 900px;">Your browser doesn't support the HTML5 canvas element!</canvas>
+      <div class="canvas-area" id="canvas-container">
+        <canvas class="gl_canvas_class" id="gl_canvas" width="1000" height="1000">Your browser doesn't support the HTML5 canvas element!</canvas>
       </div>
 
       <div class="right-bar">
@@ -101,7 +105,13 @@
         </div>
         <div class="layers-menu"></div>
       </div>
-      <div class="bottom-bar"></div>
+      <div class="bottom-bar">
+        <button id="zoombutton" class="icon-button">
+          <img src="./icons/icons8-zoom-50.png" alt="Zoom Icon">
+        </button>
+        <input type="range" min="10" max="200" value="100" class="zoom-slider" id="zoomslide">
+        <p id="slidertext">100%</p>
+      </div>
     </div>
   </body>
 </html>
