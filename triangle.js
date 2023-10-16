@@ -2,8 +2,8 @@ const GRID_SIZE = 15;
 const RGB_COLOR_RANGE = 255.0;
 const CLICKED_ICON_BACKGROUND = "#626366";
 const ICON_BACKGROUND = "transparent";
-const CANVAS_WIDTH = 900;
-const CANVAS_HEIGHT = 900;
+const CANVAS_WIDTH = 1000;
+const CANVAS_HEIGHT = 1000;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2.5;
 const IDENTITY_MT4 = mat4()
@@ -40,6 +40,7 @@ var currentColorHTMLId = null;
 var editButtonsToBeUpdated = [];
 var viewMatrix;
 var zoomFactor = 1.0
+var currentCanvasWidth = CANVAS_WIDTH;
 
 var sliderValueText;
 
@@ -462,18 +463,24 @@ function pickColorFromPicker(event) {
 }
 
 function updateViewMatrix() {
-    const scalingMatrix = scale(zoomFactor, zoomFactor, 1.0);
-    viewMatrix = mult(IDENTITY_MT4, scalingMatrix);
+    zoomFactor = zoomFactor.toFixed(2);
+    // viewMatrix = scale(zoomFactor, zoomFactor, 1.0);
+    // viewMatrix = scale(2.0, 2.0, 2.0);
+    // viewMatrix = mult(viewMatrix, scalingMatrix);
 
     // Update the canvas size based on the zoom
     const newCanvasWidth = CANVAS_WIDTH * zoomFactor;
     const newCanvasHeight = CANVAS_HEIGHT * zoomFactor;
 
-    canvas.width = newCanvasWidth;
-    canvas.height = newCanvasHeight;
+    console.log("fnew width", newCanvasWidth)
+    console.log("fnew heightht", newCanvasHeight)
+
+    canvas.width = Math.floor(newCanvasWidth);
+    canvas.height = Math.floor(newCanvasHeight);
 
     // Update the viewport to match the canvas size
     gl.viewport(0, 0, newCanvasWidth, newCanvasHeight);
+    render();
 }
 
 function updateCanvasScale(event, slideBtn) {
@@ -685,13 +692,7 @@ function render() {
     gl.clear(gl.COLOR_BUFFER_BIT); 
 
     const viewMatrixLocation = gl.getUniformLocation(program, "viewMatrix");
-    // console.log("loc", viewMatrixLocation)
-    // Use the view matrix for rendering
     gl.uniformMatrix4fv(viewMatrixLocation, false, flatten(viewMatrix));
-    // gl.uniformMatrix4fv(viewMatrixLocation, false, flatten([[1, 0, 0, 0],
-    //     [0, 1, 0, 0],
-    //     [0, 0, 1, 0],
-    //     [0, 0, 0, 1]]));
     
     gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, flatten(allVertices), gl.STATIC_DRAW); 
@@ -709,13 +710,4 @@ function render() {
     gl.enableVertexAttribArray(vColor);
 
     gl.drawArrays(gl.TRIANGLES, 0, allVertices.length);
-
-    // // Update the canvas size based on the zoom level
-    // const newCanvasWidth = CANVAS_WIDTH * zoomFactor;
-    // const newCanvasHeight = CANVAS_HEIGHT * zoomFactor;
-    // canvas.width = newCanvasWidth;
-    // canvas.height = newCanvasHeight;
-
-    // // Update the WebGL viewport
-    // gl.viewport(0, 0, newCanvasWidth, newCanvasHeight);
 }

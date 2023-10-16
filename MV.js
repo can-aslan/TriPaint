@@ -369,6 +369,7 @@ function rotate( angle, axis )
 
 function scale( x, y, z )
 {
+    console.log("scale")
     if ( Array.isArray(x) && x.length == 3 ) {
         z = x[2];
         y = x[1];

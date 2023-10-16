@@ -125,6 +125,7 @@ code {
 
 .canvas-area {
   padding: 80px;
+  padding-top: 400px;
   padding-bottom: 300px;
   display: flex;
   align-items: center;
@@ -138,7 +139,8 @@ code {
   background: white;
   border: 2px solid white;
   z-index: 2;
-  margin-top: 200px;
+  margin: 0px;
+  padding: 0px;
 }
 
 .icon-button {
