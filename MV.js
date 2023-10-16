@@ -369,6 +369,7 @@ function rotate( angle, axis )
 
 function scale( x, y, z )
 {
+    console.log("scale")
     if ( Array.isArray(x) && x.length == 3 ) {
         z = x[2];
         y = x[1];
@@ -599,7 +600,7 @@ function mix( u, v, s )
 // Vector and Matrix functions
 //
 
-function scale( s, u )
+function scale2( s, u )
 {
     if ( !Array.isArray(u) ) {
         throw "scale: second parameter " + u + " is not a vector";
