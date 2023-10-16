@@ -2,6 +2,7 @@ const GRID_SIZE = 15;
 const RGB_COLOR_RANGE = 255.0;
 const CLICKED_ICON_BACKGROUND = "#626366";
 const ICON_BACKGROUND = "transparent";
+const SELECTION_COLOR_BUFFER_DATA = [vec4(0.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.0, 1.0)];
 
 var gl;
 var isDrawing = true; // defualt mode
@@ -28,7 +29,6 @@ var theBuffer;
 var theColorBuffer;
 var selectionBuffer;
 var selectionColorBuffer;
-var selectionColorBufferData = [vec4(0.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.0, 1.0)];
 var currentColorVec4 = [];
 var currentColor = vec4(1.0, 0.0, 0.0, 1.0);
 var currentColorHTMLId = null;
@@ -215,6 +215,102 @@ function handleSelectionContinous(event, canvas) {
 
     renderSelection();
     // console.log(selectionRectangleVertices);
+}
+
+function isTriangleInsideSelection(curTriangle) {
+    if (!isSelecting) {
+        return false;
+    }
+
+    var corner1 = selectionRectangleVertices[0];
+    var corner2 = selectionRectangleVertices[2];
+    
+    var topLeftX = corner1[0] < corner2[0] ? corner1[0] : corner2[0];
+    var topLeftY = corner1[1] > corner2[1] ? corner1[1] : corner2[1];
+
+    var bottomRightX = corner1[0] > corner2[0] ? corner1[0] : corner2[0];
+    var bottomRightY = corner1[1] < corner2[1] ? corner1[1] : corner2[1];
+
+    // For each vertex in the curTriangle,
+    // check if the vertex is inside the selection triangle
+    for (let i = 0; i < curTriangle.length; i++) {
+        var curVertex = curTriangle[i];
+        var curX = curVertex[0];
+        var curY = curVertex[1];
+
+        /*
+        console.log("------------------------------");
+        console.log(curVertex);
+
+        // Check X coordinate
+        console.log("check X");
+        console.log(bottomRightSelection[0]);
+        console.log(curVertex[0]);
+        console.log(bottomRightSelection[0] >= curVertex[0]);
+        console.log("--");
+        console.log(curVertex[0]);
+        console.log(topLeftSelection[0]);
+        console.log(curVertex[0] >= topLeftSelection[0]);
+        */
+
+        var isXinside; // = bottomRightX >= curX && curX >= topLeftX;
+        var isYinside; // = bottomRightY >= curY && curY >= topLeftY;
+
+        if (curX < 0) {
+            isXinside = topLeftX <= curX && bottomRightX >= curX;
+        }
+        else {
+            isXinside = topLeftX <= curX && bottomRightX >= curX;
+        }
+
+        if (curY < 0) {
+            isYinside = topLeftY >= curY && bottomRightY <= curY;
+        }
+        else {
+            isYinside = topLeftY >= curY && bottomRightY <= curY;
+        }
+
+        // console.log("isXinside: " + isXinside);
+
+        // Check Y coordinate
+        /*
+        console.log("check Y");
+        console.log(bottomRightSelection[1]);
+        console.log(curVertex[1]);
+        console.log(bottomRightSelection[1] >= curVertex[1]);
+        console.log("--");
+        console.log(curVertex[1]);
+        console.log(topLeftSelection[1]);
+        console.log(curVertex[1] >= topLeftSelection[1]);
+        */
+
+        
+
+        // console.log("isYinside: " + isYinside);
+
+        if (isXinside && isYinside) {
+            console.log("vertex inside");
+        }
+    }
+    
+    return false;
+}
+
+function handleSelectionMouseUp(event, canvas) {
+    if (!isSelecting || !updateSelectCoords1) {
+        return;
+    }
+
+    // We are here if there is a complete selection
+    // Traverse all triangles
+    for (let i = 0; i < allVertices.length; i = i + 3) {
+        // Check if any vertex of the triangle is inside the selected area
+        var curTriangle = [allVertices[i], allVertices[i + 1], allVertices[i + 2]];
+        
+        if (isTriangleInsideSelection(curTriangle)) {
+
+        }
+    }
 }
 
 function draw(event, canvas) {
@@ -591,6 +687,10 @@ window.onload = function init() {
         isMouseDown = false;
 
         currentStroke++;
+
+        if (isSelecting) {
+            handleSelectionMouseUp(event, canvas);
+        }
     });
 
     canvas.addEventListener("mousedown", (event) => {
@@ -719,7 +819,7 @@ function renderSelection() {
 
     // Selection Color Buffer
     gl.bindBuffer(gl.ARRAY_BUFFER, selectionColorBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, flatten(selectionColorBufferData), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(SELECTION_COLOR_BUFFER_DATA), gl.STATIC_DRAW);
   
     // Associate shader variables and draw the color buffer
     var vColor = gl.getAttribLocation(program, "vColor");
