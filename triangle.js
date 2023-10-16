@@ -20,6 +20,7 @@ var currentSlider = DEF_SLIDER;
 
 var gl;
 var canvas;
+var canvasContainer;
 var isDrawing = true; // defualt mode
 var isErasing = false;
 var isSelecting = false;
@@ -35,6 +36,8 @@ var program;
 var zoom = 1.0;
 var panX = 0.0;
 var panY = 0.0;
+var transX = 0.0;
+var transY = 0.0;
 var lastMouseX;
 var lastMouseY;
 var isOperating = false;
@@ -54,6 +57,9 @@ var viewMatrix;
 var currentCanvasWidth = CANVAS_WIDTH;
 
 var sliderValueText;
+// move variables
+var startX;
+var startY;
 
 const StrokeType = {
     Draw: "draw",
@@ -151,6 +157,39 @@ function distanceToPoint(x1, y1, point) {
     const dy = y1 - point[1];
 
     return Math.sqrt(dx * dx + dy * dy);
+}
+
+function moveCanvasMouseDown(event) {
+    startX = event.clientX;
+    startY = event.clientY;
+}
+
+function moveCanvas(event, canvas) {
+    var deltaX = event.clientX - startX;
+    var deltaY = event.clientY - startY;
+
+    transX += deltaX;
+    transY += deltaY;
+
+    // transX = Math.min(transX, 200);
+    // transY = Math.min(transY, 200);
+
+    // Update panX and panY based on mouse movement
+    panX += deltaX / (CANVAS_WIDTH / 2);
+    panY -= deltaY / (CANVAS_WIDTH / 2);
+
+    console.log("transX", transX)
+
+    // Update the view matrix
+    // updateViewMatrixMove();
+
+    canvas.style.transform = `translate(${transX}px, ${transY}px)`;
+
+    // Render the scene
+    render();
+
+    startX = event.clientX;
+    startY = event.clientY;
 }
 
 function draw(event, canvas) {
@@ -488,11 +527,14 @@ function pickColorFromPicker(event) {
     setTriangleColor(r, g, b);
 }
 
+function updateViewMatrixMove() {
+    var translationMatrix = translate(panX, panY, 0);
+    viewMatrix = mult(translationMatrix, mat4());
+}
+
 function updateViewMatrix() {
     zoomFactor = zoomFactor.toFixed(2);
-    // viewMatrix = translate([1,1,0])
-    
-    console.log("aloo",viewMatrix)
+    // viewMatrix = translate([1,1,0])    
     // viewMatrix = scale(zoomFactor, zoomFactor, 1.0);
     // viewMatrix = scale(2.0, 2.0, 2.0);
     // viewMatrix = mult(viewMatrix, scalingMatrix);
@@ -501,13 +543,16 @@ function updateViewMatrix() {
     const newCanvasWidth = CANVAS_WIDTH * zoomFactor;
     const newCanvasHeight = CANVAS_HEIGHT * zoomFactor;
 
-    console.log("fnew width", newCanvasWidth)
-    console.log("fnew heightht", newCanvasHeight)
-
     canvas.width = Math.floor(newCanvasWidth);
     canvas.height = Math.floor(newCanvasHeight);
 
-    // Update the viewport to match the canvas size
+    containerStyle =  getComputedStyle(canvasContainer);
+
+    canvasContainer.width = Math.max(parseInt(containerStyle.width, 10), canvas.width + 3000);
+    canvasContainer.height = Math.max(parseInt(containerStyle.height, 10), canvas.height + 300);
+
+    console.log("new height", canvasContainer.height)
+    // Update the viewport
     gl.viewport(0, 0, newCanvasWidth, newCanvasHeight);
     render();
 }
@@ -544,6 +589,7 @@ function updateCanvasScale(event, slideBtn) {
 function zoomToSlider(zoom, maxZoom, minZoom, maxSlide, minSlide) {
     // Ensure that the input zoom is valid
     zoom = Math.max(minZoom, Math.min(maxZoom, zoom));
+    zoomFactor = zoom;
 
     // Calculate the slide based on the zoom and the range of slides
     const slideRange = maxSlide - minSlide;
@@ -566,23 +612,6 @@ function sliderToZoom(slide, maxZoom, minZoom, maxSlide, minSlide) {
 
     return zoom;
 }
-
-// function normalizeValue(value, min, max) {
-//     return (value - min) / (max - min);
-// }
-
-// function sliderToZoom(sliderValue) {
-//     const sliderRange = 100;
-//     const normalizedSlider = sliderValue / sliderRange;
-//     return MIN_ZOOM + normalizedSlider * (MAX_ZOOM - MIN_ZOOM);
-// }
-
-// function zoomToSlider(zoomFactor) {    
-//     const normalizedZoom = normalizeValue(zoomFactor, MIN_ZOOM, MAX_ZOOM);
-//     const sliderRange = 100;
-
-//     return normalizedZoom * sliderRange;    
-// }
 
 window.onload = function init() {
     currentStroke = 0;
@@ -664,6 +693,8 @@ window.onload = function init() {
     });
 
     canvas = document.getElementById( "gl_canvas" );
+    canvasContainer = document.getElementById( "canvas-container" );
+    console.log("get container", getComputedStyle(canvasContainer).width)
     canvas.width = CANVAS_WIDTH;
     canvas.height = CANVAS_HEIGHT;
     
@@ -706,6 +737,7 @@ window.onload = function init() {
 
         if (isMoving) {
             console.log("move2");
+            moveCanvasMouseDown(event);
         } else {
             draw(event, canvas);
         }        
@@ -714,10 +746,11 @@ window.onload = function init() {
     canvas.addEventListener("mousemove", (event) => {
         if (isMouseDown && isMoving) {
             console.log("move3");
+            moveCanvas(event, canvas);
         } if (isMouseDown) {
             draw(event, canvas);
         }        
-    });      
+    });     
 
     // Setup grids
     for (let i = -GRID_SIZE; i <= GRID_SIZE; i++) {
