@@ -2,12 +2,19 @@ const GRID_SIZE = 15;
 const RGB_COLOR_RANGE = 255.0;
 const CLICKED_ICON_BACKGROUND = "#626366";
 const ICON_BACKGROUND = "transparent";
+const CANVAS_WIDTH = 900;
+const CANVAS_HEIGHT = 900;
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2.5;
+const IDENTITY_MT4 = mat4()
 
 var gl;
+var canvas;
 var isDrawing = true; // defualt mode
 var isErasing = false;
 var isSelecting = false;
 var isMouseDown = false;
+var isSliding = false;
 var allBuffers = [];
 var pointsGrid = [];
 var glGrid = [];
@@ -30,7 +37,11 @@ var currentColorVec4 = [];
 var currentColor = vec4(1.0, 0.0, 0.0, 1.0);
 var currentColorHTMLId = null;
 
-var editButtonsToBeUpdated = []
+var editButtonsToBeUpdated = [];
+var viewMatrix;
+var zoomFactor = 1.0
+
+var sliderValueText;
 
 const StrokeType = {
     Draw: "draw",
@@ -406,6 +417,7 @@ function resetAllModes() {
     isDrawing = false;
     isErasing = false;
     isSelecting = false;
+    isSliding = false;
 }
 
 function setTriangleColor(r, g, b) {
@@ -449,8 +461,77 @@ function pickColorFromPicker(event) {
     setTriangleColor(r, g, b);
 }
 
+function updateViewMatrix() {
+    const scalingMatrix = scale(zoomFactor, zoomFactor, 1.0);
+    viewMatrix = mult(IDENTITY_MT4, scalingMatrix);
+
+    // Update the canvas size based on the zoom
+    const newCanvasWidth = CANVAS_WIDTH * zoomFactor;
+    const newCanvasHeight = CANVAS_HEIGHT * zoomFactor;
+
+    canvas.width = newCanvasWidth;
+    canvas.height = newCanvasHeight;
+
+    // Update the viewport to match the canvas size
+    gl.viewport(0, 0, newCanvasWidth, newCanvasHeight);
+}
+
+function updateCanvasScale(event, slideBtn) {
+    let sliderValue;
+
+    if (isSliding) {
+        sliderValue = slideBtn.value;
+        zoomFactor = sliderToZoom(sliderValue);
+        console.log("value:", zoomFactor)
+        isSliding = false;
+    }
+    else {
+        if (event.deltaY > 0) {
+            // Zoom out
+            zoomFactor /= 1.1;
+        } else {
+            // Zoom in
+            zoomFactor *= 1.1;
+        }
+
+        if (zoomFactor < MIN_ZOOM) {
+            zoomFactor = MIN_ZOOM;
+        } else if (zoomFactor > MAX_ZOOM) {
+            zoomFactor = MAX_ZOOM;
+        }
+
+        sliderValue = zoomToSlider(zoomFactor);
+    }
+
+    slideBtn.value = sliderValue;
+    sliderValueText.textContent = `${parseInt(sliderValue)}%`;
+
+    updateViewMatrix();
+    render();
+}
+
+function normalizeValue(value, min, max) {
+    return (value - min) / (max - min);
+}
+
+function sliderToZoom(sliderValue) {
+    const sliderRange = 100;
+    const normalizedSlider = sliderValue / sliderRange;
+    return MIN_ZOOM + normalizedSlider * (MAX_ZOOM - MIN_ZOOM);
+}
+
+function zoomToSlider(zoomFactor) {    
+    const normalizedZoom = normalizeValue(zoomFactor, MIN_ZOOM, MAX_ZOOM);
+    const sliderRange = 100;
+
+    return normalizedZoom * sliderRange;    
+}
+
 window.onload = function init() {
     currentStroke = 0;
+
+    // Add event listener for each button
+    sliderValueText = document.getElementById("slidertext");
 
     var undoButton = document.getElementById("undobutton");
     undoButton.addEventListener("click", undoLastStroke);
@@ -496,6 +577,7 @@ window.onload = function init() {
         btn.style.backgroundColor = CLICKED_ICON_BACKGROUND;
     })});
 
+    // Add hover effect to the icons
     editButtonsToBeUpdated.forEach((btn) => {btn.addEventListener("mouseleave", () => {
         if (!((btn == eraserButton && isErasing)
             || (btn == pencilButton && isDrawing)
@@ -511,9 +593,15 @@ window.onload = function init() {
     var colorPicker = document.getElementById("colorpicker");
     colorPicker.addEventListener("input", pickColorFromPicker);
 
-    var canvas = document.getElementById( "gl_canvas" );
-    canvas.width = 900;
-    canvas.height = 900;
+    var zoomSlider = document.getElementById("zoomslide");
+    zoomSlider.addEventListener("input", (event) => {
+        isSliding = true;
+        updateCanvasScale(event, zoomSlider);
+    });
+
+    canvas = document.getElementById( "gl_canvas" );
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT;
     
     gl = WebGLUtils.setupWebGL( canvas );    
     if ( !gl ) { alert( "WebGL isn't available" ); }  
@@ -522,9 +610,24 @@ window.onload = function init() {
     gl.viewport( 0, 0, canvas.width, canvas.height );
     gl.clearColor( 1.0, 1.0, 1.0, 1.0 );
 
+    // Create a view matrix (identity matrix)
+    viewMatrix = mat4();
+
     // Load shaders and initialize attribute buffers
     program = initShaders( gl, "vertex-shader", "fragment-shader" );
     gl.useProgram( program )
+    
+    canvas.addEventListener('wheel', (event) => {
+        if (event.ctrlKey) {
+            updateCanvasScale(event, zoomSlider);
+
+            // Prevent the default scroll behavior
+            event.preventDefault();
+          }
+    });
+
+    
+    
     
     canvas.addEventListener("mouseup", (event) => {
         isOperating = false;
@@ -574,10 +677,21 @@ window.onload = function init() {
   
     theColorBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, theColorBuffer);
+
+    // updateViewMatrix();
 };
 
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT); 
+
+    const viewMatrixLocation = gl.getUniformLocation(program, "viewMatrix");
+    // console.log("loc", viewMatrixLocation)
+    // Use the view matrix for rendering
+    gl.uniformMatrix4fv(viewMatrixLocation, false, flatten(viewMatrix));
+    // gl.uniformMatrix4fv(viewMatrixLocation, false, flatten([[1, 0, 0, 0],
+    //     [0, 1, 0, 0],
+    //     [0, 0, 1, 0],
+    //     [0, 0, 0, 1]]));
     
     gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, flatten(allVertices), gl.STATIC_DRAW); 
@@ -586,7 +700,7 @@ function render() {
     var vPosition = gl.getAttribLocation(program, "vPosition");
     gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(vPosition);
-  
+
     gl.bindBuffer(gl.ARRAY_BUFFER, theColorBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, flatten(currentColorVec4), gl.STATIC_DRAW);
   
@@ -595,4 +709,13 @@ function render() {
     gl.enableVertexAttribArray(vColor);
 
     gl.drawArrays(gl.TRIANGLES, 0, allVertices.length);
+
+    // // Update the canvas size based on the zoom level
+    // const newCanvasWidth = CANVAS_WIDTH * zoomFactor;
+    // const newCanvasHeight = CANVAS_HEIGHT * zoomFactor;
+    // canvas.width = newCanvasWidth;
+    // canvas.height = newCanvasHeight;
+
+    // // Update the WebGL viewport
+    // gl.viewport(0, 0, newCanvasWidth, newCanvasHeight);
 }

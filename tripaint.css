@@ -88,8 +88,14 @@ code {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 10px;
+  height: 18px;
   background-color: #252525;
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  gap: 10px;
+  font-family: "Consolas", Helvetica, sans-serif;
+  color: white;
 }
 
 .left-bar {
@@ -130,8 +136,6 @@ code {
 
 .gl_canvas_class {
   background: white;
-  width: 900px; 
-  height: 900px; 
   border: 2px solid white;
   z-index: 2;
   margin-top: 200px;
