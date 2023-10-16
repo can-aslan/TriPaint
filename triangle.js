@@ -4,9 +4,19 @@ const CLICKED_ICON_BACKGROUND = "#626366";
 const ICON_BACKGROUND = "transparent";
 const CANVAS_WIDTH = 1000;
 const CANVAS_HEIGHT = 1000;
-const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 2.5;
+
+const DEF_SLIDER = 100;
+const DEF_ZOOM = 1.0;
+const MIN_SLIDER = 10;
+const MAX_SLIDER = 200;
+const MIN_ZOOM = 0.3;
+const MAX_ZOOM = calculateMaxZoom();
 const IDENTITY_MT4 = mat4()
+
+console.log("max zoom", MAX_ZOOM)
+
+var zoomFactor = DEF_ZOOM;
+var currentSlider = DEF_SLIDER;
 
 var gl;
 var canvas;
@@ -41,7 +51,6 @@ var currentColorHTMLId = null;
 
 var editButtonsToBeUpdated = [];
 var viewMatrix;
-var zoomFactor = 1.0
 var currentCanvasWidth = CANVAS_WIDTH;
 
 var sliderValueText;
@@ -95,6 +104,12 @@ function moveCanvasIsMouseDown (event) {
     isMouseDown = true;
     lastMouseX = event.clientX;
     lastMouseY = event.clientY;
+}
+
+function calculateMaxZoom() {
+    const sliderRange = MAX_SLIDER - MIN_SLIDER;
+    const ratio = (DEF_ZOOM - MIN_ZOOM) / (DEF_SLIDER - MIN_SLIDER)
+    return MIN_ZOOM + sliderRange * ratio;
 }
 
 function moveCanvasMouseDrag (event) {
@@ -502,7 +517,7 @@ function updateCanvasScale(event, slideBtn) {
 
     if (isSliding) {
         sliderValue = slideBtn.value;
-        zoomFactor = sliderToZoom(sliderValue);
+        zoomFactor = sliderToZoom(sliderValue, MAX_ZOOM, MIN_ZOOM, MAX_SLIDER, MIN_SLIDER);
         console.log("value:", zoomFactor)
         isSliding = false;
     }
@@ -515,13 +530,8 @@ function updateCanvasScale(event, slideBtn) {
             zoomFactor *= 1.1;
         }
 
-        if (zoomFactor < MIN_ZOOM) {
-            zoomFactor = MIN_ZOOM;
-        } else if (zoomFactor > MAX_ZOOM) {
-            zoomFactor = MAX_ZOOM;
-        }
-
-        sliderValue = zoomToSlider(zoomFactor);
+        sliderValue = zoomToSlider(zoomFactor, MAX_ZOOM, MIN_ZOOM, MAX_SLIDER, MIN_SLIDER);
+        console.log("value:", sliderValue)
     }
 
     slideBtn.value = sliderValue;
@@ -531,22 +541,48 @@ function updateCanvasScale(event, slideBtn) {
     render();
 }
 
-function normalizeValue(value, min, max) {
-    return (value - min) / (max - min);
+function zoomToSlider(zoom, maxZoom, minZoom, maxSlide, minSlide) {
+    // Ensure that the input zoom is valid
+    zoom = Math.max(minZoom, Math.min(maxZoom, zoom));
+
+    // Calculate the slide based on the zoom and the range of slides
+    const slideRange = maxSlide - minSlide;
+    const zoomRange = maxZoom - minZoom;
+    const relativeZoom = (zoom - minZoom) / zoomRange;
+    const slide = Math.round(minSlide + relativeZoom * slideRange);
+
+    return slide;
 }
 
-function sliderToZoom(sliderValue) {
-    const sliderRange = 100;
-    const normalizedSlider = sliderValue / sliderRange;
-    return MIN_ZOOM + normalizedSlider * (MAX_ZOOM - MIN_ZOOM);
+function sliderToZoom(slide, maxZoom, minZoom, maxSlide, minSlide) {
+    // Ensure that the input slide is within the valid range
+    slide = Math.max(minSlide, Math.min(maxSlide, slide));
+
+    // Calculate the zoom level based on the slide and the range of slides
+    const slideRange = maxSlide - minSlide;
+    const zoomRange = maxZoom - minZoom;
+    const relativeSlide = (slide - minSlide) / slideRange;
+    const zoom = minZoom + relativeSlide * zoomRange;
+
+    return zoom;
 }
 
-function zoomToSlider(zoomFactor) {    
-    const normalizedZoom = normalizeValue(zoomFactor, MIN_ZOOM, MAX_ZOOM);
-    const sliderRange = 100;
+// function normalizeValue(value, min, max) {
+//     return (value - min) / (max - min);
+// }
 
-    return normalizedZoom * sliderRange;    
-}
+// function sliderToZoom(sliderValue) {
+//     const sliderRange = 100;
+//     const normalizedSlider = sliderValue / sliderRange;
+//     return MIN_ZOOM + normalizedSlider * (MAX_ZOOM - MIN_ZOOM);
+// }
+
+// function zoomToSlider(zoomFactor) {    
+//     const normalizedZoom = normalizeValue(zoomFactor, MIN_ZOOM, MAX_ZOOM);
+//     const sliderRange = 100;
+
+//     return normalizedZoom * sliderRange;    
+// }
 
 window.onload = function init() {
     currentStroke = 0;
@@ -643,7 +679,7 @@ window.onload = function init() {
 
     // Load shaders and initialize attribute buffers
     program = initShaders( gl, "vertex-shader", "fragment-shader" );
-    gl.useProgram( program )
+    gl.useProgram( program );
     
     canvas.addEventListener('wheel', (event) => {
         if (event.ctrlKey) {
