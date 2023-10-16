@@ -2,9 +2,10 @@ const GRID_SIZE = 15;
 const RGB_COLOR_RANGE = 255.0;
 const CLICKED_ICON_BACKGROUND = "#626366";
 const ICON_BACKGROUND = "transparent";
+const SELECTION_COLOR_BUFFER_DATA = [vec4(0.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.0, 1.0)];
+const SELECTED_TRIANGLE_COLOR = vec4(0.0, 0.0, 0.0, 1.0);
 const CANVAS_WIDTH = 1000;
 const CANVAS_HEIGHT = 1000;
-
 const DEF_SLIDER = 100;
 const DEF_ZOOM = 1.0;
 const MIN_SLIDER = 10;
@@ -13,11 +14,8 @@ const MIN_ZOOM = 0.3;
 const MAX_ZOOM = calculateMaxZoom();
 const IDENTITY_MT4 = mat4()
 
-console.log("max zoom", MAX_ZOOM)
-
 var zoomFactor = DEF_ZOOM;
 var currentSlider = DEF_SLIDER;
-
 var gl;
 var canvas;
 var canvasContainer;
@@ -27,7 +25,6 @@ var isSelecting = false;
 var isMouseDown = false;
 var isSliding = false;
 var isMoving = false;
-
 var allBuffers = [];
 var pointsGrid = [];
 var glGrid = [];
@@ -48,18 +45,25 @@ var currentStroke = 0;
 var allVertices = [];
 var theBuffer;
 var theColorBuffer;
+var selectionBuffer;
+var selectionColorBuffer;
 var currentColorVec4 = [];
 var currentColor = vec4(1.0, 0.0, 0.0, 1.0);
 var currentColorHTMLId = null;
-
 var editButtonsToBeUpdated = [];
 var viewMatrix;
 var currentCanvasWidth = CANVAS_WIDTH;
-
 var sliderValueText;
 // move variables
 var startX;
 var startY;
+var updateSelectCoords1 = true;
+var selectCoords1;
+var selectCoords2;
+var selectionRectangleVertices = [];
+var selectedTriangleVertices = [];
+var selectedTriangleColors = [];
+var editButtonsToBeUpdated = []
 
 const StrokeType = {
     Draw: "draw",
@@ -192,7 +196,218 @@ function moveCanvas(event, canvas) {
     startY = event.clientY;
 }
 
+function handleSelection(event, canvas) {
+    if (!isSelecting) {
+        return;
+    }
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    // canvasX -> mouseX, canvasY -> mouseY
+    var canvasX = (x / canvas.width) * 2 - 1;
+    var canvasY = -((y / canvas.height) * 2 - 1);
+
+    if (canvasX < -1) { canvasX = -1; }
+    else if (canvasX > 1) { canvasX = 1; }
+
+    if (canvasY < -1) { canvasY = -1; }
+    else if (canvasY > 1) { canvasY = 1; }
+
+    if (updateSelectCoords1) {
+        selectCoords1 = vec2(canvasX, canvasY);
+    }
+    else {
+        selectCoords2 = vec2(canvasX, canvasY);
+    }
+
+    updateSelectCoords1 = !updateSelectCoords1;
+}
+
+function handleSelectionContinous(event, canvas) {
+    if (!isSelecting) {
+        return;
+    }
+    else if (!updateSelectCoords1) {
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+
+        // canvasX -> mouseX, canvasY -> mouseY
+        var canvasX = (x / canvas.width) * 2 - 1;
+        var canvasY = -((y / canvas.height) * 2 - 1);
+
+        if (canvasX < -1) { canvasX = -1; }
+        else if (canvasX > 1) { canvasX = 1; }
+
+        if (canvasY < -1) { canvasY = -1; }
+        else if (canvasY > 1) { canvasY = 1; }
+
+        selectCoords1 = vec2(canvasX, canvasY);
+
+        updateSelectCoords1 = !updateSelectCoords1;
+    }
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    // canvasX -> mouseX, canvasY -> mouseY
+    var canvasX = (x / canvas.width) * 2 - 1;
+    var canvasY = -((y / canvas.height) * 2 - 1);
+
+    if (canvasX < -1) { canvasX = -1; }
+    else if (canvasX > 1) { canvasX = 1; }
+
+    if (canvasY < -1) { canvasY = -1; }
+    else if (canvasY > 1) { canvasY = 1; }
+
+    selectCoords2 = vec2(canvasX, canvasY);
+
+    // Calculate the other two coordinates
+    if (selectCoords1 == undefined) {
+        selectCoords1 = selectCoords2;
+    }
+
+    var coord3 = vec2(selectCoords1[0], selectCoords2[1]);
+    var coord4 = vec2(selectCoords2[0], selectCoords1[1]);
+
+    selectionRectangleVertices = [];
+    selectionRectangleVertices.push(selectCoords1);
+    selectionRectangleVertices.push(coord3);
+    selectionRectangleVertices.push(selectCoords2);
+    selectionRectangleVertices.push(coord4);
+
+    renderSelection();
+}
+
+function isTriangleInsideSelection(curTriangle) {
+    if (!isSelecting) {
+        return false;
+    }
+
+    var corner1 = selectionRectangleVertices[0];
+    var corner2 = selectionRectangleVertices[2];
+    
+    var topLeftX = corner1[0] < corner2[0] ? corner1[0] : corner2[0];
+    var topLeftY = corner1[1] > corner2[1] ? corner1[1] : corner2[1];
+
+    var bottomRightX = corner1[0] > corner2[0] ? corner1[0] : corner2[0];
+    var bottomRightY = corner1[1] < corner2[1] ? corner1[1] : corner2[1];
+
+    // For each vertex in the curTriangle,
+    // check if the vertex is inside the selection triangle
+    for (let i = 0; i < curTriangle.length; i++) {
+        var curVertex = curTriangle[i];
+        var curX = curVertex[0];
+        var curY = curVertex[1];
+
+        var isXinside = topLeftX <= curX && bottomRightX >= curX;
+        var isYinside= topLeftY >= curY && bottomRightY <= curY;
+
+        if (isXinside && isYinside) {
+            // If we are here, that means that the current triangle is in the selection region
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+function handleSelectionMouseUp(event, canvas) {
+    if (!isSelecting || !updateSelectCoords1) {
+        return;
+    }
+
+    // Reset both selectedTriangleVertices and selectedTriangleColors (splice way is more performant)
+    selectedTriangleVertices.splice(0, selectedTriangleVertices.length);
+    selectedTriangleColors.splice(0, selectedTriangleColors.length);
+
+    // We are here if there is a complete selection
+    // Traverse all triangles
+    for (let i = 0; i < allVertices.length; i = i + 3) {
+        // Check if any vertex of the triangle is inside the selected area
+        var curTriangle = [allVertices[i], allVertices[i + 1], allVertices[i + 2]];
+        
+        if (isTriangleInsideSelection(curTriangle)) {
+            // If we are here, then the current triangle is inside the selection area
+            selectedTriangleVertices.push(allVertices[i]);
+            selectedTriangleVertices.push(allVertices[i + 1]);
+            selectedTriangleVertices.push(allVertices[i + 2]);
+
+            selectedTriangleColors.push(SELECTED_TRIANGLE_COLOR);
+            selectedTriangleColors.push(SELECTED_TRIANGLE_COLOR);
+            selectedTriangleColors.push(SELECTED_TRIANGLE_COLOR);
+        }
+    }
+
+    if (selectedTriangleVertices.length == 0 || selectedTriangleColors.length == 0) {
+        // If no selection has been detected, check if the cursor is inside a triangle
+        var corner1 = selectionRectangleVertices[0];
+        var corner2 = selectionRectangleVertices[2];
+
+        // For every triangle
+        for (let i = 0; i < allVertices.length; i = i + 3) {
+            var curTriangle = [allVertices[i], allVertices[i + 1], allVertices[i + 2]];
+
+            // Check for intersection between the selection area and the current triangle
+            if (pointInTriangle(corner1, curTriangle) || pointInTriangle(corner2, curTriangle)) {
+                selectedTriangleVertices.push(allVertices[i]);
+                selectedTriangleVertices.push(allVertices[i + 1]);
+                selectedTriangleVertices.push(allVertices[i + 2]);
+
+                selectedTriangleColors.push(SELECTED_TRIANGLE_COLOR);
+                selectedTriangleColors.push(SELECTED_TRIANGLE_COLOR);
+                selectedTriangleColors.push(SELECTED_TRIANGLE_COLOR);
+            }
+        }
+    }
+
+    renderSelectedTriangles();
+}
+
+function pointInTriangle(point, triangle) {
+    var vertex1 = triangle[0];
+    var vertex2 = triangle[1];
+    var vertex3 = triangle[2];
+
+    var x1 = vertex1[0];
+    var y1 = vertex1[1];
+
+    var x2 = vertex2[0];
+    var y2 = vertex2[1];
+
+    var x3 = vertex3[0];
+    var y3 = vertex3[1];
+
+    // Calculate the determinant of the matrix formed
+    // by the coordinates of the three vertices of the triangle
+    // This value (detT) is used for a kind of normalization
+    var detT = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3);
+
+    // Calculate the barycentric coordinate related to vertex2 of the triangle
+    var barycentricVertex2 = ((y2 - y3) * (point[0] - x3) + (x3 - x2) * (point[1] - y3)) / detT;
+
+    // Calculate the barycentric coordinate related to vertex3 of the triangle
+    var barycentricVertex3 = ((y3 - y1) * (point[0] - x3) + (x1 - x3) * (point[1] - y3)) / detT;
+
+    // Calculate the barycentric coordinate related to vertex1 of the triangle
+    var barycentricVertex1 = 1 - barycentricVertex2 - barycentricVertex3;
+
+    // If all barycentricVertex1, barycentricVertex2 and barycentricVertex3 are greater than or equal to zero, point is in the triangle
+    return barycentricVertex1 >= 0 && barycentricVertex2 >= 0 && barycentricVertex3 >= 0;
+}
+
 function draw(event, canvas) {
+    try {
+        drawHandler(event, canvas);
+    } catch (error) {
+        return;
+    }
+}
+
+function drawHandler(event, canvas) {
     if (!isMouseDown) {
         return;
     }
@@ -298,6 +513,9 @@ function draw(event, canvas) {
                 strokes[currentStroke].push(new Stroke(allVertices.splice(i, 3), currentColorVec4.splice(i, 3)[0], StrokeType.Erase));
             }
         }
+    }
+    else if (isSelecting) {
+        // selectCoords1 = vec2(canvasX, canvasY);
     }
 
     lastOpWasUndoOrRedo = false;
@@ -416,60 +634,6 @@ function redoLastUndoneStroke() {
     render();
 }
 
-function eraseMode(eraserButton) {
-    updateButtonBackground(eraserButton);
-    resetAllModes();
-    isErasing = true;
-}
-
-function drawMode(pencilButton) {
-    updateButtonBackground(pencilButton);
-    resetAllModes();
-    isDrawing = true;
-}
-
-function selectMode(selectionButton) {
-    updateButtonBackground(selectionButton);
-    resetAllModes();
-    isSelecting = true;
-}
-
-function moveMode(moveButton) {
-    updateButtonBackground(moveButton);
-    resetAllModes();
-    isMoving = true;
-}
-
-function cutSelection() {
-    updateButtonBackground();
-    resetAllModes();
-    isDrawing = false;
-}
-
-function copySelection() {
-    updateButtonBackground();
-    resetAllModes();
-    isDrawing = false;
-}
-
-function pasteSelection() {
-    updateButtonBackground();
-    resetAllModes();
-    isDrawing = false;
-}
-
-function openFile() {
-    updateButtonBackground();
-    resetAllModes();
-    isDrawing = false;
-}
-
-function saveFile() {
-    updateButtonBackground();
-    resetAllModes();
-    isDrawing = false;
-}
-
 function updateButtonBackground(button = null) {
     editButtonsToBeUpdated.forEach(btn => btn.style.backgroundColor = ICON_BACKGROUND);
 
@@ -484,6 +648,8 @@ function resetAllModes() {
     isSelecting = false;
     isSliding = false;
     isMoving = false;
+  
+    render();
 }
 
 function setTriangleColor(r, g, b) {
@@ -724,9 +890,11 @@ window.onload = function init() {
     canvas.addEventListener("mouseup", (event) => {        
         isOperating = false;
         isMouseDown = false;
-        if (isMoving) {
-            console.log("move1");
-        } else {    
+      
+        if (isSelecting) {
+            handleSelectionMouseUp(event, canvas);
+        }
+        else {
             currentStroke++;
         }
     });
@@ -734,23 +902,37 @@ window.onload = function init() {
     canvas.addEventListener("mousedown", (event) => {
         isOperating = true;
         isMouseDown = true;
-
+      
         if (isMoving) {
-            console.log("move2");
             moveCanvasMouseDown(event);
-        } else {
+        }
+        else {
             draw(event, canvas);
+            handleSelectionContinous(event, canvas);
         }        
     });  
 
     canvas.addEventListener("mousemove", (event) => {
-        if (isMouseDown && isMoving) {
-            console.log("move3");
-            moveCanvas(event, canvas);
-        } if (isMouseDown) {
+        if (!isMouseDown) {
+            return;
+        }
+
+        if (isDrawing || isErasing) {
             draw(event, canvas);
-        }        
-    });     
+        }
+
+        if (isSelecting) {
+            handleSelectionContinous(event, canvas);
+        }
+      
+        if (isMoving) {
+            moveCanvas(event, canvas);
+        }
+    });      
+
+    canvas.addEventListener("click", (event) => {
+        handleSelection(event, canvas);
+    });
 
     // Setup grids
     for (let i = -GRID_SIZE; i <= GRID_SIZE; i++) {
@@ -776,32 +958,174 @@ window.onload = function init() {
         }
     }
 
+    selectionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, selectionBuffer);
+
     theBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
   
     theColorBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, theColorBuffer);
 
-    // updateViewMatrix();
+    selectionColorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, selectionColorBuffer);
+
+    render();
 };
+
+function eraseMode(eraserButton) {
+    updateButtonBackground(eraserButton);
+    resetAllModes();
+    isErasing = true;
+}
+
+function drawMode(pencilButton) {
+    updateButtonBackground(pencilButton);
+    resetAllModes();
+    isDrawing = true;
+}
+
+function selectMode(selectionButton) {
+    updateButtonBackground(selectionButton);
+    resetAllModes();
+    isSelecting = true;
+}
+
+function moveMode(moveButton) {
+    updateButtonBackground(moveButton);
+    resetAllModes();
+    isMoving = true;
+}
+
+function cutSelection() {
+    updateButtonBackground();
+    resetAllModes();
+    isDrawing = false;
+}
+
+function copySelection() {
+    updateButtonBackground();
+    resetAllModes();
+    isDrawing = false;
+}
+
+function pasteSelection() {
+    updateButtonBackground();
+    resetAllModes();
+    isDrawing = false;
+}
+
+function openFile() {
+    updateButtonBackground();
+    resetAllModes();
+    isDrawing = false;
+}
+
+function saveFile() {
+    updateButtonBackground();
+    resetAllModes();
+    isDrawing = false;
+}
+
+function renderSelectedTriangles() {
+    render();
+
+    var borderVertices = [];
+    var borderColors = [];
+
+    // For every selected triangle, create relevant border data
+    for (var i = 0; i < selectedTriangleVertices.length; i += 3) {
+        var vertex1 = selectedTriangleVertices[i];
+        var vertex2 = selectedTriangleVertices[i + 1];
+        var vertex3 = selectedTriangleVertices[i + 2];
+
+        // Below contains the vertex data for the lines of the border
+        var lines = [
+            vertex1, vertex2,
+            vertex2, vertex3,
+            vertex3, vertex1
+        ];
+
+        borderVertices.push(lines[0]);
+        borderVertices.push(lines[1]);
+        borderVertices.push(lines[2]);
+        borderVertices.push(lines[3]);
+        borderVertices.push(lines[4]);
+        borderVertices.push(lines[5]);
+
+        borderColors.push(SELECTED_TRIANGLE_COLOR);
+        borderColors.push(SELECTED_TRIANGLE_COLOR);
+        borderColors.push(SELECTED_TRIANGLE_COLOR);
+        borderColors.push(SELECTED_TRIANGLE_COLOR);
+        borderColors.push(SELECTED_TRIANGLE_COLOR);
+        borderColors.push(SELECTED_TRIANGLE_COLOR);
+    }
+
+    // Selection Buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, selectionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(borderVertices), gl.STATIC_DRAW);
+
+    // Associate shader variables and draw the selection buffer
+    var vPosition = gl.getAttribLocation(program, "vPosition");
+    gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vPosition);
+
+    // Selection Color Buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, selectionColorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(borderColors), gl.STATIC_DRAW);
+
+    // Associate shader variables and draw the color buffer
+    var vColor = gl.getAttribLocation(program, "vColor");
+    gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vColor);
+
+    gl.drawArrays(gl.LINES, 0, selectedTriangleVertices.length * 2); // Double the number of vertices
+}
+
+function renderSelection() {
+    render();
+
+    // Selection Buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, selectionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(selectionRectangleVertices), gl.STATIC_DRAW);
+
+    // Associate shader variables and draw the selection buffer
+    var vPosition = gl.getAttribLocation(program, "vPosition");
+    gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vPosition);
+
+    // Selection Color Buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, selectionColorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(SELECTION_COLOR_BUFFER_DATA), gl.STATIC_DRAW);
+  
+    // Associate shader variables and draw the color buffer
+    var vColor = gl.getAttribLocation(program, "vColor");
+    gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vColor);
+
+    gl.drawArrays(gl.LINE_LOOP, 0, 4);
+}
 
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT); 
 
     const viewMatrixLocation = gl.getUniformLocation(program, "viewMatrix");
     gl.uniformMatrix4fv(viewMatrixLocation, false, flatten(viewMatrix));
-    
+
+    // Vertex Buffer
     gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, flatten(allVertices), gl.STATIC_DRAW); 
 
-    // Associate shader variables and draw the current buffer
+    // Associate shader variables and draw the vertex buffer
     var vPosition = gl.getAttribLocation(program, "vPosition");
     gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(vPosition);
 
+    // Color Buffer
     gl.bindBuffer(gl.ARRAY_BUFFER, theColorBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, flatten(currentColorVec4), gl.STATIC_DRAW);
   
+    // Associate shader variables and draw the color buffer
     var vColor = gl.getAttribLocation(program, "vColor");
     gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(vColor);
