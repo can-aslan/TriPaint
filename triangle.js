@@ -26,10 +26,16 @@ var currentStroke = 0;
 var allVertices = [];
 var theBuffer;
 var theColorBuffer;
+var selectionBuffer;
+var selectionColorBuffer;
+var selectionColorBufferData = [vec4(0.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.0, 1.0)];
 var currentColorVec4 = [];
 var currentColor = vec4(1.0, 0.0, 0.0, 1.0);
 var currentColorHTMLId = null;
-
+var updateSelectCoords1 = true;
+var selectCoords1;
+var selectCoords2;
+var selectionRectangleVertices = [];
 var editButtonsToBeUpdated = []
 
 const StrokeType = {
@@ -122,7 +128,104 @@ function distanceToPoint(x1, y1, point) {
     return Math.sqrt(dx * dx + dy * dy);
 }
 
+function handleSelection(event, canvas) {
+    if (!isSelecting) {
+        return;
+    }
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    // canvasX -> mouseX, canvasY -> mouseY
+    var canvasX = (x / canvas.width) * 2 - 1;
+    var canvasY = -((y / canvas.height) * 2 - 1);
+
+    if (canvasX < -1) { canvasX = -1; }
+    else if (canvasX > 1) { canvasX = 1; }
+
+    if (canvasY < -1) { canvasY = -1; }
+    else if (canvasY > 1) { canvasY = 1; }
+
+    if (updateSelectCoords1) {
+        selectCoords1 = vec2(canvasX, canvasY);
+    }
+    else {
+        selectCoords2 = vec2(canvasX, canvasY);
+    }
+
+    updateSelectCoords1 = !updateSelectCoords1;
+}
+
+function handleSelectionContinous(event, canvas) {
+    if (!isSelecting) {
+        return;
+    }
+    else if (!updateSelectCoords1) {
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+
+        // canvasX -> mouseX, canvasY -> mouseY
+        var canvasX = (x / canvas.width) * 2 - 1;
+        var canvasY = -((y / canvas.height) * 2 - 1);
+
+        if (canvasX < -1) { canvasX = -1; }
+        else if (canvasX > 1) { canvasX = 1; }
+
+        if (canvasY < -1) { canvasY = -1; }
+        else if (canvasY > 1) { canvasY = 1; }
+
+        selectCoords1 = vec2(canvasX, canvasY);
+
+        updateSelectCoords1 = !updateSelectCoords1;
+    }
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    // canvasX -> mouseX, canvasY -> mouseY
+    var canvasX = (x / canvas.width) * 2 - 1;
+    var canvasY = -((y / canvas.height) * 2 - 1);
+
+    if (canvasX < -1) { canvasX = -1; }
+    else if (canvasX > 1) { canvasX = 1; }
+
+    if (canvasY < -1) { canvasY = -1; }
+    else if (canvasY > 1) { canvasY = 1; }
+
+    selectCoords2 = vec2(canvasX, canvasY);
+
+    // console.log("Selected P1: " + selectCoords1 + "\nSelected P2: " + selectCoords2);
+
+    // Calculate the other two coordinates
+    if (selectCoords1 == undefined) {
+        selectCoords1 = selectCoords2;
+    }
+
+    var coord3 = vec2(selectCoords1[0], selectCoords2[1]);
+    var coord4 = vec2(selectCoords2[0], selectCoords1[1]);
+
+    selectionRectangleVertices = [];
+    selectionRectangleVertices.push(selectCoords1);
+    selectionRectangleVertices.push(coord3);
+    selectionRectangleVertices.push(selectCoords2);
+    selectionRectangleVertices.push(coord4);
+
+    renderSelection();
+    // console.log(selectionRectangleVertices);
+}
+
 function draw(event, canvas) {
+    try {
+        drawHandler(event, canvas);
+    } catch (error) {
+        return;
+    }
+}
+
+function drawHandler(event, canvas) {
     if (!isMouseDown) {
         return;
     }
@@ -228,6 +331,9 @@ function draw(event, canvas) {
                 strokes[currentStroke].push(new Stroke(allVertices.splice(i, 3), currentColorVec4.splice(i, 3)[0], StrokeType.Erase));
             }
         }
+    }
+    else if (isSelecting) {
+        // selectCoords1 = vec2(canvasX, canvasY);
     }
 
     lastOpWasUndoOrRedo = false;
@@ -346,54 +452,6 @@ function redoLastUndoneStroke() {
     render();
 }
 
-function eraseMode(eraserButton) {
-    updateButtonBackground(eraserButton);
-    resetAllModes();
-    isErasing = true;
-}
-
-function drawMode(pencilButton) {
-    updateButtonBackground(pencilButton);
-    resetAllModes();
-    isDrawing = true;
-}
-
-function selectMode(selectionButton) {
-    updateButtonBackground(selectionButton);
-    resetAllModes();
-    isSelecting = true;
-}
-
-function cutSelection() {
-    updateButtonBackground();
-    resetAllModes();
-    isDrawing = false;
-}
-
-function copySelection() {
-    updateButtonBackground();
-    resetAllModes();
-    isDrawing = false;
-}
-
-function pasteSelection() {
-    updateButtonBackground();
-    resetAllModes();
-    isDrawing = false;
-}
-
-function openFile() {
-    updateButtonBackground();
-    resetAllModes();
-    isDrawing = false;
-}
-
-function saveFile() {
-    updateButtonBackground();
-    resetAllModes();
-    isDrawing = false;
-}
-
 function updateButtonBackground(button = null) {
     editButtonsToBeUpdated.forEach(btn => btn.style.backgroundColor = ICON_BACKGROUND);
 
@@ -406,6 +464,8 @@ function resetAllModes() {
     isDrawing = false;
     isErasing = false;
     isSelecting = false;
+
+    render();
 }
 
 function setTriangleColor(r, g, b) {
@@ -537,13 +597,26 @@ window.onload = function init() {
         isOperating = true;
         isMouseDown = true;
         draw(event, canvas);
+        handleSelectionContinous(event, canvas);
     });  
 
     canvas.addEventListener("mousemove", (event) => {
-        if (isMouseDown) {
+        if (!isMouseDown) {
+            return;
+        }
+
+        if (isDrawing || isErasing) {
             draw(event, canvas);
         }
+
+        if (isSelecting) {
+            handleSelectionContinous(event, canvas);
+        }
     });      
+
+    canvas.addEventListener("click", (event) => {
+        handleSelection(event, canvas);
+    });
 
     // Setup grids
     for (let i = -GRID_SIZE; i <= GRID_SIZE; i++) {
@@ -569,27 +642,110 @@ window.onload = function init() {
         }
     }
 
+    selectionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, selectionBuffer);
+
     theBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
   
     theColorBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, theColorBuffer);
+
+    selectionColorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, selectionColorBuffer);
+
+    render();
 };
 
+function eraseMode(eraserButton) {
+    updateButtonBackground(eraserButton);
+    resetAllModes();
+    isErasing = true;
+}
+
+function drawMode(pencilButton) {
+    updateButtonBackground(pencilButton);
+    resetAllModes();
+    isDrawing = true;
+}
+
+function selectMode(selectionButton) {
+    updateButtonBackground(selectionButton);
+    resetAllModes();
+    isSelecting = true;
+}
+
+function cutSelection() {
+    updateButtonBackground();
+    resetAllModes();
+    isDrawing = false;
+}
+
+function copySelection() {
+    updateButtonBackground();
+    resetAllModes();
+    isDrawing = false;
+}
+
+function pasteSelection() {
+    updateButtonBackground();
+    resetAllModes();
+    isDrawing = false;
+}
+
+function openFile() {
+    updateButtonBackground();
+    resetAllModes();
+    isDrawing = false;
+}
+
+function saveFile() {
+    updateButtonBackground();
+    resetAllModes();
+    isDrawing = false;
+}
+
+function renderSelection() {
+    render();
+
+    // Selection Buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, selectionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(selectionRectangleVertices), gl.STATIC_DRAW);
+
+    // Associate shader variables and draw the selection buffer
+    var vPosition = gl.getAttribLocation(program, "vPosition");
+    gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vPosition);
+
+    // Selection Color Buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, selectionColorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(selectionColorBufferData), gl.STATIC_DRAW);
+  
+    // Associate shader variables and draw the color buffer
+    var vColor = gl.getAttribLocation(program, "vColor");
+    gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vColor);
+
+    gl.drawArrays(gl.LINE_LOOP, 0, 4);
+}
+
 function render() {
-    gl.clear(gl.COLOR_BUFFER_BIT); 
-    
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    // Vertex Buffer
     gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, flatten(allVertices), gl.STATIC_DRAW); 
 
-    // Associate shader variables and draw the current buffer
+    // Associate shader variables and draw the vertex buffer
     var vPosition = gl.getAttribLocation(program, "vPosition");
     gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(vPosition);
   
+    // Color Buffer
     gl.bindBuffer(gl.ARRAY_BUFFER, theColorBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, flatten(currentColorVec4), gl.STATIC_DRAW);
   
+    // Associate shader variables and draw the color buffer
     var vColor = gl.getAttribLocation(program, "vColor");
     gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(vColor);
