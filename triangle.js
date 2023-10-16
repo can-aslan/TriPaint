@@ -4,12 +4,27 @@ const CLICKED_ICON_BACKGROUND = "#626366";
 const ICON_BACKGROUND = "transparent";
 const SELECTION_COLOR_BUFFER_DATA = [vec4(0.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.0, 1.0)];
 const SELECTED_TRIANGLE_COLOR = vec4(0.0, 0.0, 0.0, 1.0);
+const CANVAS_WIDTH = 1000;
+const CANVAS_HEIGHT = 1000;
+const DEF_SLIDER = 100;
+const DEF_ZOOM = 1.0;
+const MIN_SLIDER = 10;
+const MAX_SLIDER = 200;
+const MIN_ZOOM = 0.3;
+const MAX_ZOOM = calculateMaxZoom();
+const IDENTITY_MT4 = mat4()
 
+var zoomFactor = DEF_ZOOM;
+var currentSlider = DEF_SLIDER;
 var gl;
+var canvas;
+var canvasContainer;
 var isDrawing = true; // defualt mode
 var isErasing = false;
 var isSelecting = false;
 var isMouseDown = false;
+var isSliding = false;
+var isMoving = false;
 var allBuffers = [];
 var pointsGrid = [];
 var glGrid = [];
@@ -18,6 +33,8 @@ var program;
 var zoom = 1.0;
 var panX = 0.0;
 var panY = 0.0;
+var transX = 0.0;
+var transY = 0.0;
 var lastMouseX;
 var lastMouseY;
 var isOperating = false;
@@ -33,6 +50,13 @@ var selectionColorBuffer;
 var currentColorVec4 = [];
 var currentColor = vec4(1.0, 0.0, 0.0, 1.0);
 var currentColorHTMLId = null;
+var editButtonsToBeUpdated = [];
+var viewMatrix;
+var currentCanvasWidth = CANVAS_WIDTH;
+var sliderValueText;
+// move variables
+var startX;
+var startY;
 var updateSelectCoords1 = true;
 var selectCoords1;
 var selectCoords2;
@@ -92,6 +116,12 @@ function moveCanvasIsMouseDown (event) {
     lastMouseY = event.clientY;
 }
 
+function calculateMaxZoom() {
+    const sliderRange = MAX_SLIDER - MIN_SLIDER;
+    const ratio = (DEF_ZOOM - MIN_ZOOM) / (DEF_SLIDER - MIN_SLIDER)
+    return MIN_ZOOM + sliderRange * ratio;
+}
+
 function moveCanvasMouseDrag (event) {
     // if mouse is not down, don't do anything
     if (!isMouseDown) {
@@ -108,6 +138,8 @@ function moveCanvasMouseDrag (event) {
     // Update the pan based on mouse drag
     panX += deltaX / (canvas.width / 2 / zoom);
     panY -= deltaY / (canvas.height / 2 / zoom);
+    // panX += deltaX / (canvas.width / 2 / zoom);
+    // panY -= deltaY / (canvas.height / 2 / zoom);
 
     render();
 }
@@ -129,6 +161,39 @@ function distanceToPoint(x1, y1, point) {
     const dy = y1 - point[1];
 
     return Math.sqrt(dx * dx + dy * dy);
+}
+
+function moveCanvasMouseDown(event) {
+    startX = event.clientX;
+    startY = event.clientY;
+}
+
+function moveCanvas(event, canvas) {
+    var deltaX = event.clientX - startX;
+    var deltaY = event.clientY - startY;
+
+    transX += deltaX;
+    transY += deltaY;
+
+    // transX = Math.min(transX, 200);
+    // transY = Math.min(transY, 200);
+
+    // Update panX and panY based on mouse movement
+    panX += deltaX / (CANVAS_WIDTH / 2);
+    panY -= deltaY / (CANVAS_WIDTH / 2);
+
+    console.log("transX", transX)
+
+    // Update the view matrix
+    // updateViewMatrixMove();
+
+    canvas.style.transform = `translate(${transX}px, ${transY}px)`;
+
+    // Render the scene
+    render();
+
+    startX = event.clientX;
+    startY = event.clientY;
 }
 
 function handleSelection(event, canvas) {
@@ -200,8 +265,6 @@ function handleSelectionContinous(event, canvas) {
 
     selectCoords2 = vec2(canvasX, canvasY);
 
-    // console.log("Selected P1: " + selectCoords1 + "\nSelected P2: " + selectCoords2);
-
     // Calculate the other two coordinates
     if (selectCoords1 == undefined) {
         selectCoords1 = selectCoords2;
@@ -217,7 +280,6 @@ function handleSelectionContinous(event, canvas) {
     selectionRectangleVertices.push(coord4);
 
     renderSelection();
-    // console.log(selectionRectangleVertices);
 }
 
 function isTriangleInsideSelection(curTriangle) {
@@ -587,7 +649,9 @@ function resetAllModes() {
     isDrawing = false;
     isErasing = false;
     isSelecting = false;
-
+    isSliding = false;
+    isMoving = false;
+  
     render();
 }
 
@@ -632,8 +696,97 @@ function pickColorFromPicker(event) {
     setTriangleColor(r, g, b);
 }
 
+function updateViewMatrixMove() {
+    var translationMatrix = translate(panX, panY, 0);
+    viewMatrix = mult(translationMatrix, mat4());
+}
+
+function updateViewMatrix() {
+    zoomFactor = zoomFactor.toFixed(2);
+    // viewMatrix = translate([1,1,0])    
+    // viewMatrix = scale(zoomFactor, zoomFactor, 1.0);
+    // viewMatrix = scale(2.0, 2.0, 2.0);
+    // viewMatrix = mult(viewMatrix, scalingMatrix);
+
+    // Update the canvas size based on the zoom
+    const newCanvasWidth = CANVAS_WIDTH * zoomFactor;
+    const newCanvasHeight = CANVAS_HEIGHT * zoomFactor;
+
+    canvas.width = Math.floor(newCanvasWidth);
+    canvas.height = Math.floor(newCanvasHeight);
+
+    containerStyle =  getComputedStyle(canvasContainer);
+
+    canvasContainer.width = Math.max(parseInt(containerStyle.width, 10), canvas.width + 3000);
+    canvasContainer.height = Math.max(parseInt(containerStyle.height, 10), canvas.height + 300);
+
+    console.log("new height", canvasContainer.height)
+    // Update the viewport
+    gl.viewport(0, 0, newCanvasWidth, newCanvasHeight);
+    render();
+}
+
+function updateCanvasScale(event, slideBtn) {
+    let sliderValue;
+
+    if (isSliding) {
+        sliderValue = slideBtn.value;
+        zoomFactor = sliderToZoom(sliderValue, MAX_ZOOM, MIN_ZOOM, MAX_SLIDER, MIN_SLIDER);
+        console.log("value:", zoomFactor)
+        isSliding = false;
+    }
+    else {
+        if (event.deltaY > 0) {
+            // Zoom out
+            zoomFactor /= 1.1;
+        } else {
+            // Zoom in
+            zoomFactor *= 1.1;
+        }
+
+        sliderValue = zoomToSlider(zoomFactor, MAX_ZOOM, MIN_ZOOM, MAX_SLIDER, MIN_SLIDER);
+        console.log("value:", sliderValue)
+    }
+
+    slideBtn.value = sliderValue;
+    sliderValueText.textContent = `${parseInt(sliderValue)}%`;
+
+    updateViewMatrix();
+    render();
+}
+
+function zoomToSlider(zoom, maxZoom, minZoom, maxSlide, minSlide) {
+    // Ensure that the input zoom is valid
+    zoom = Math.max(minZoom, Math.min(maxZoom, zoom));
+    zoomFactor = zoom;
+
+    // Calculate the slide based on the zoom and the range of slides
+    const slideRange = maxSlide - minSlide;
+    const zoomRange = maxZoom - minZoom;
+    const relativeZoom = (zoom - minZoom) / zoomRange;
+    const slide = Math.round(minSlide + relativeZoom * slideRange);
+
+    return slide;
+}
+
+function sliderToZoom(slide, maxZoom, minZoom, maxSlide, minSlide) {
+    // Ensure that the input slide is within the valid range
+    slide = Math.max(minSlide, Math.min(maxSlide, slide));
+
+    // Calculate the zoom level based on the slide and the range of slides
+    const slideRange = maxSlide - minSlide;
+    const zoomRange = maxZoom - minZoom;
+    const relativeSlide = (slide - minSlide) / slideRange;
+    const zoom = minZoom + relativeSlide * zoomRange;
+
+    return zoom;
+}
+
 window.onload = function init() {
     currentStroke = 0;
+
+    // Add event listener for each button
+    sliderValueText = document.getElementById("slidertext");
 
     var undoButton = document.getElementById("undobutton");
     undoButton.addEventListener("click", undoLastStroke);
@@ -670,19 +823,27 @@ window.onload = function init() {
     selectionButton.addEventListener("click", function() {
         selectMode(selectionButton);
     });
+    
+    var moveButton = document.getElementById("movebutton");
+    moveButton.addEventListener("click", function() {
+        moveMode(moveButton);
+    });
 
     editButtonsToBeUpdated.push(eraserButton);
     editButtonsToBeUpdated.push(pencilButton);
     editButtonsToBeUpdated.push(selectionButton);
+    editButtonsToBeUpdated.push(moveButton);
 
     editButtonsToBeUpdated.forEach((btn) => {btn.addEventListener("mouseenter", () => {
         btn.style.backgroundColor = CLICKED_ICON_BACKGROUND;
     })});
 
+    // Add hover effect to the icons
     editButtonsToBeUpdated.forEach((btn) => {btn.addEventListener("mouseleave", () => {
         if (!((btn == eraserButton && isErasing)
             || (btn == pencilButton && isDrawing)
-            || (btn == selectionButton && isSelecting))) {
+            || (btn == selectionButton && isSelecting)
+            || (btn == moveButton && isMoving))) {
 
             btn.style.backgroundColor = ICON_BACKGROUND;        
         }        
@@ -694,9 +855,17 @@ window.onload = function init() {
     var colorPicker = document.getElementById("colorpicker");
     colorPicker.addEventListener("input", pickColorFromPicker);
 
-    var canvas = document.getElementById( "gl_canvas" );
-    canvas.width = 900;
-    canvas.height = 900;
+    var zoomSlider = document.getElementById("zoomslide");
+    zoomSlider.addEventListener("input", (event) => {
+        isSliding = true;
+        updateCanvasScale(event, zoomSlider);
+    });
+
+    canvas = document.getElementById( "gl_canvas" );
+    canvasContainer = document.getElementById( "canvas-container" );
+    console.log("get container", getComputedStyle(canvasContainer).width)
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT;
     
     gl = WebGLUtils.setupWebGL( canvas );    
     if ( !gl ) { alert( "WebGL isn't available" ); }  
@@ -705,26 +874,45 @@ window.onload = function init() {
     gl.viewport( 0, 0, canvas.width, canvas.height );
     gl.clearColor( 1.0, 1.0, 1.0, 1.0 );
 
+    // Create a view matrix (identity matrix)
+    viewMatrix = mat4();
+
     // Load shaders and initialize attribute buffers
     program = initShaders( gl, "vertex-shader", "fragment-shader" );
-    gl.useProgram( program )
+    gl.useProgram( program );
     
-    canvas.addEventListener("mouseup", (event) => {
+    canvas.addEventListener('wheel', (event) => {
+        if (event.ctrlKey) {
+            updateCanvasScale(event, zoomSlider);
+
+            // Prevent the default scroll behavior
+            event.preventDefault();
+          }
+    });
+
+    canvas.addEventListener("mouseup", (event) => {        
         isOperating = false;
         isMouseDown = false;
-
-        currentStroke++;
-
+      
         if (isSelecting) {
             handleSelectionMouseUp(event, canvas);
+        }
+        else {
+            currentStroke++;
         }
     });
 
     canvas.addEventListener("mousedown", (event) => {
         isOperating = true;
         isMouseDown = true;
-        draw(event, canvas);
-        handleSelectionContinous(event, canvas);
+      
+        if (isMoving) {
+            moveCanvasMouseDown(event);
+        }
+        else {
+            draw(event, canvas);
+            handleSelectionContinous(event, canvas);
+        }        
     });  
 
     canvas.addEventListener("mousemove", (event) => {
@@ -738,6 +926,10 @@ window.onload = function init() {
 
         if (isSelecting) {
             handleSelectionContinous(event, canvas);
+        }
+      
+        if (isMoving) {
+            moveCanvas(event, canvas);
         }
     });      
 
@@ -800,6 +992,12 @@ function selectMode(selectionButton) {
     updateButtonBackground(selectionButton);
     resetAllModes();
     isSelecting = true;
+}
+
+function moveMode(moveButton) {
+    updateButtonBackground(moveButton);
+    resetAllModes();
+    isMoving = true;
 }
 
 function cutSelection() {
@@ -912,7 +1110,10 @@ function renderSelection() {
 }
 
 function render() {
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.clear(gl.COLOR_BUFFER_BIT); 
+
+    const viewMatrixLocation = gl.getUniformLocation(program, "viewMatrix");
+    gl.uniformMatrix4fv(viewMatrixLocation, false, flatten(viewMatrix));
 
     // Vertex Buffer
     gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
@@ -922,7 +1123,7 @@ function render() {
     var vPosition = gl.getAttribLocation(program, "vPosition");
     gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(vPosition);
-  
+
     // Color Buffer
     gl.bindBuffer(gl.ARRAY_BUFFER, theColorBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, flatten(currentColorVec4), gl.STATIC_DRAW);
