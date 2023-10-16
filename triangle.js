@@ -285,6 +285,8 @@ function handleSelectionMouseUp(event, canvas) {
         var corner1 = selectionRectangleVertices[0];
         var corner2 = selectionRectangleVertices[2];
 
+        // TODO For every point in the selection rectangle
+        // TODO for (let curPt = corner1; curPt) {
         // For every triangle
         for (let i = 0; i < allVertices.length; i = i + 3) {
             var curTriangle = [allVertices[i], allVertices[i + 1], allVertices[i + 2]];
@@ -300,6 +302,7 @@ function handleSelectionMouseUp(event, canvas) {
                 selectedTriangleColors.push(SELECTED_TRIANGLE_COLOR);
             }
         }
+        // TODO }
     }
 
     renderSelectedTriangles();
