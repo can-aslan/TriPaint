@@ -23,6 +23,7 @@ var isDrawing = true; // defualt mode
 var isErasing = false;
 var isSelecting = false;
 var isMoveSelectionButtonMode = false;
+var isCopying = false;
 var hasCompleteSelection = false;
 var isMovingCompleteSelection = false;
 var startSelectionX;
@@ -421,15 +422,11 @@ function getClickedSubTriangle(event, canvas) {
 }
 
 function moveSelectionContinuos(event, canvas) {
-    if (!isMoveSelectionButtonMode || !hasCompleteSelection) {
+    if ((!isMoveSelectionButtonMode && !isCopying) || !hasCompleteSelection || selectedTriangleVertices.length <= 0) {
         return;
     }
 
     // Find the triangle the mouse is on
-    if (!isMoveSelectionButtonMode || !hasCompleteSelection || selectedTriangleVertices.length <= 0) {
-        return;
-    }
-
     if (selectedAreaStartTriangle.length <= 0 || selectedAreaStartCell.length <= 0) {
         // selectedAreaStartTriangle is the starting triangle (that the mouse is on)
         selectedAreaStartTriangle = getClickedSubTriangle(event, canvas); // <- DO NOT REMOVE!
@@ -471,8 +468,6 @@ function handleSelectionMovementMouseUp(event, canvas) {
 
     var visitedVertex = [];
     var visitedBefore = false;
-
-    currentStroke++; // increased for deleting all
                 
     if (strokes[currentStroke] === undefined) {
         strokes[currentStroke] = [];
@@ -584,6 +579,94 @@ function handleSelectionMovementMouseUp(event, canvas) {
     }
 
     currentStroke++;
+}
+
+function handleCopyMovementMouseUp(event, canvas) {
+    if (!isCopying || !hasCompleteSelection) {
+        return;
+    }
+
+    var visitedVertex = [];
+    var visitedBefore = false;
+                
+    if (strokes[currentStroke] === undefined) {
+        strokes[currentStroke] = [];
+    }
+
+    if (lastOpWasUndoOrRedo) { // If drawing right after undo, remove previous undone ops
+        undoneStrokes.splice(0, undoneStrokes.length);
+    }
+
+    // Move all in the original to the locations in the selectedTriangleVertices
+    for (let i = 0; i < originalSelectedTriangleVertices.length; i = i + 3) {
+        var originalVertex1 = originalSelectedTriangleVertices[i];
+        var originalVertex2 = originalSelectedTriangleVertices[i + 1];
+        var originalVertex3 = originalSelectedTriangleVertices[i + 2];
+
+        var movedVertex1 = selectedTriangleVertices[i];
+        var movedVertex2 = selectedTriangleVertices[i + 1];
+        var movedVertex3 = selectedTriangleVertices[i + 2];
+
+        for (let j = 0; j < visitedVertex.length; j++) {
+            if (
+                visitedVertex[j][0] == originalVertex1[0] && visitedVertex[j][1] == originalVertex1[1]
+                && visitedVertex[j + 1][0] == originalVertex2[0] && visitedVertex[j + 1][1] == originalVertex2[1]
+                && visitedVertex[j + 2][0] == originalVertex3[0] && visitedVertex[j + 2][1] == originalVertex3[1]
+            ) {
+                // If we are here, vertex is visited before
+                visitedBefore = true;
+                break;
+            }
+        }
+
+        if (visitedBefore) {
+            visitedBefore = false;
+            continue;
+        }
+        
+        visitedVertex.push(originalVertex1);
+        visitedVertex.push(originalVertex2);
+        visitedVertex.push(originalVertex3);
+
+        for (let k = 0; k < allVertices.length; k = k + 3) {
+            var curV1 = allVertices[k];
+            var curV2 = allVertices[k + 1];
+            var curV3 = allVertices[k + 2];
+
+            if (
+                curV1[0] == originalVertex1[0] && curV1[1] == originalVertex1[1]
+                && curV2[0] == originalVertex2[0] && curV2[1] == originalVertex2[1]
+                && curV3[0] == originalVertex3[0] && curV3[1] == originalVertex3[1]
+            ) {
+                // If we are here, this vertex needs to be moved to the correct position
+                allVertices.push(new vec2(movedVertex1[0], movedVertex1[1]));
+                allVertices.push(new vec2(movedVertex2[0], movedVertex2[1]));
+                allVertices.push(new vec2(movedVertex3[0], movedVertex3[1]));
+
+                currentColorVec4.push(currentColorVec4[k]);
+                currentColorVec4.push(currentColorVec4[k]);
+                currentColorVec4.push(currentColorVec4[k]);
+
+                // Save add step as a draw operation so we can undo/redo
+                var newTri = [
+                    new vec2(movedVertex1[0], movedVertex1[1]),
+                    new vec2(movedVertex2[0], movedVertex2[1]),
+                    new vec2(movedVertex3[0], movedVertex3[1])
+                ]
+
+                strokes[currentStroke].push(new Stroke(newTri, currentColorVec4[k], StrokeType.Draw));
+
+                lastOpWasUndoOrRedo = false;
+                
+                continue;
+            }
+        }
+
+        lastOpWasUndoOrRedo = false;
+    }
+    
+    currentStroke++;
+    render();
 }
 
 function isTriangleInsideSelection(curTriangle) {
@@ -883,6 +966,8 @@ function undoLastStroke() {
   
     if (currentStroke <= 0) { return; }
     
+    console.log(strokes);
+    console.log(currentStroke);
     var undoneStroke = strokes.splice(currentStroke - 1, 1);
     undoneStrokes.push(undoneStroke[0]);
 
@@ -973,6 +1058,7 @@ function resetAllModes() {
     isSliding = false;
     isMoving = false;
     isMoveSelectionButtonMode = false;
+    isCopying = false;
   
     render();
 }
@@ -1127,7 +1213,9 @@ window.onload = function init() {
     cutButton.addEventListener("click", cutSelection);
     
     var copyButton = document.getElementById("copybutton");
-    copyButton.addEventListener("click", copySelection);
+    copyButton.addEventListener("click", function() {
+        copySelection(copyButton);
+    });
     
     var pasteButton = document.getElementById("pastebutton");
     pasteButton.addEventListener("click", pasteSelection); 
@@ -1176,6 +1264,7 @@ window.onload = function init() {
     editButtonsToBeUpdated.push(selectionButton);
     editButtonsToBeUpdated.push(moveButton);
     editButtonsToBeUpdated.push(moveSelectionButton);
+    editButtonsToBeUpdated.push(copyButton);
 
     editButtonsToBeUpdated.forEach((btn) => {btn.addEventListener("mouseenter", () => {
         btn.style.backgroundColor = CLICKED_ICON_BACKGROUND;
@@ -1187,6 +1276,7 @@ window.onload = function init() {
             || (btn == pencilButton && isDrawing)
             || (btn == selectionButton && isSelecting)
             || (btn == moveButton && isMoving)
+            || (btn == copyButton && isCopying)
             || (btn == moveSelectionButton && isMoveSelectionButtonMode))
         ) {
 
@@ -1260,6 +1350,10 @@ window.onload = function init() {
             handleSelectionMovementMouseUp(event, canvas);
             resetSelectionData();
         }
+        else if (isCopying && hasCompleteSelection) {
+            handleCopyMovementMouseUp(event, canvas);
+            resetSelectionData();
+        }
     });
 
     canvas.addEventListener("mousedown", (event) => {
@@ -1275,7 +1369,7 @@ window.onload = function init() {
         else if (isSelecting) {
             handleSelectionContinous(event, canvas);
         }
-        else if (isMoveSelectionButtonMode) {
+        else if (isMoveSelectionButtonMode || isCopying) {
             moveSelectionContinuos(event, canvas);
         }
     });  
@@ -1297,7 +1391,7 @@ window.onload = function init() {
             moveCanvas(event, canvas);
         }
 
-        if (isMoveSelectionButtonMode) {
+        if (isMoveSelectionButtonMode || isCopying) {
             moveSelectionContinuos(event, canvas);
         }
     });      
@@ -1413,6 +1507,9 @@ function copySelection() {
     updateButtonBackground();
     resetAllModes();
     // resetSelectionData();
+
+    isCopying = true;
+    renderSelectedTriangles();
 }
 
 function pasteSelection() {
