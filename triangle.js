@@ -1336,8 +1336,9 @@ window.onload = function init() {
 
     document.getElementById('tripaintinput').addEventListener('change', function () {
         var selectedFile = this.files[0];
-
         loadFile(selectedFile);
+
+        this.value = null;
     });
 
     canvas = document.getElementById( "gl_canvas" );
@@ -1812,7 +1813,6 @@ function loadFile(file) {
                 lastLayerIdNo = jsonData.lastLayerIdNo;
                 layerNo = layerNo;    
 
-                console.log("layerstack:", layerStack);
                 render();
             } catch (error) {
                 console.error("Error parsing JSON:", error);
