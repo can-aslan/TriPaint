@@ -51,8 +51,10 @@
         </div>
         <div class="file-opr">
           <button id="filebutton" class="icon-button file-button">
+            
             <img src="./icons/icons8-open-file-50.png" alt="Open Icon">
           </button>
+          <input type="file" id="tripaintinput" accept=".tripaint" style="display: none;">
           <button id="savebutton" class="icon-button file-button">
             <img src="./icons/icons8-save-50.png" alt="Save Icon">
           </button>
@@ -106,7 +108,32 @@
           <hr class="line">
           <input type="color" id="colorpicker" value="#0000ff">
         </div>
-        <div class="layers-menu"></div>
+        <div class="layer-menu">
+          <div id="layer-area" class="layer-area">
+            <!-- <div class="layer" id="l-0">
+              <p>Layer 1</p>
+              <button class="icon-button layer-button visible-button" value="l-0">
+                <img src="./icons/icons8-eye-30.png" alt="Visible Layer Icon">
+              </button>
+            </div>
+            <div class="layer" id="l-1"></div>
+            <div class="layer" id="l-2"></div> -->
+          </div>
+          <div class="layer-options">
+            <button id="plusbtn" class="icon-button layer-button">
+              <img src="./icons/icons8-plus-30.png" alt="Plus Layer Icon">
+            </button>
+            <button id="binbtn" class="icon-button layer-button">
+              <img src="./icons/icons8-bin-30.png" alt="Delete Layer Icon">
+            </button>
+            <button id="upbtn" class="icon-button layer-button">
+              <img src="./icons/icons8-arrow-up-30.png" alt="Up Layer Icon">
+            </button>
+            <button id="downbtn" class="icon-button layer-button">
+              <img src="./icons/icons8-arrow-down-30.png" alt="Down Layer Icon">
+            </button>
+          </div>
+        </div>
       </div>
       <div class="bottom-bar">
         <button id="zoombutton" class="icon-button">
