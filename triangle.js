@@ -98,7 +98,7 @@ var lastLayerIdNo = -1;
 var layerStack = [];
 var activeLayerId = -1; // l-0
 var layerAreaDiv;
-console.log(layerStack)
+// console.log(layerStack)
 
 class Stroke {
     constructor(triangle, color, type) {
@@ -226,7 +226,7 @@ function moveCanvas(event, canvas) {
     panX += deltaX / (CANVAS_WIDTH / 2);
     panY -= deltaY / (CANVAS_WIDTH / 2);
 
-    console.log("transX", transX)
+    // console.log("transX", transX)
 
     // Update the view matrix
     // updateViewMatrixMove();
@@ -472,6 +472,26 @@ function handleSelectionMovementMouseUp(event, canvas) {
     var visitedVertex = [];
     var visitedBefore = false;
 
+    currentStroke++; // increased for deleting all
+                
+    if (strokes[currentStroke] === undefined) {
+        strokes[currentStroke] = [];
+    }
+
+    if (lastOpWasUndoOrRedo) { // If drawing right after undo, remove previous undone ops
+        undoneStrokes.splice(0, undoneStrokes.length);
+    }
+
+    currentStroke++; // increased for adding all
+                
+    if (strokes[currentStroke] === undefined) {
+        strokes[currentStroke] = [];
+    }
+
+    if (lastOpWasUndoOrRedo) { // If drawing right after undo, remove previous undone ops
+        undoneStrokes.splice(0, undoneStrokes.length);
+    }
+
     // Move all in the original to the locations in the selectedTriangleVertices
     for (let i = 0; i < originalSelectedTriangleVertices.length; i = i + 3) {
         var originalVertex1 = originalSelectedTriangleVertices[i];
@@ -503,7 +523,6 @@ function handleSelectionMovementMouseUp(event, canvas) {
         visitedVertex.push(originalVertex2);
         visitedVertex.push(originalVertex3);
 
-        // First, erase all "originalVertex" from the allVertex and respective color buffer data
         for (let k = 0; k < allVertices.length; k = k + 3) {
             var curV1 = allVertices[k];
             var curV2 = allVertices[k + 1];
@@ -514,28 +533,57 @@ function handleSelectionMovementMouseUp(event, canvas) {
                 && curV2[0] == originalVertex2[0] && curV2[1] == originalVertex2[1]
                 && curV3[0] == originalVertex3[0] && curV3[1] == originalVertex3[1]
             ) {
-                /*if (strokes[currentStroke] === undefined) {
-                    strokes[currentStroke] = [];
-                }
-            
-                if (lastOpWasUndoOrRedo) { // If drawing right after undo, remove previous undone ops
-                    undoneStrokes.splice(0, undoneStrokes.length);
-                }*/
+                // Save remove step as a erase operation so we can undo/redo
+                var triV = [
+                    allVertices[k],
+                    allVertices[k + 1],
+                    allVertices[k + 2]
+                ];
 
+                var triC = [
+                    currentColorVec4[k],
+                    currentColorVec4[k + 1],
+                    currentColorVec4[k + 2]
+                ];
+
+                strokes[currentStroke - 1].push(new Stroke(triV, triC[0], StrokeType.Erase));
+            }
+        }
+
+        for (let k = 0; k < allVertices.length; k = k + 3) {
+            var curV1 = allVertices[k];
+            var curV2 = allVertices[k + 1];
+            var curV3 = allVertices[k + 2];
+
+            if (
+                curV1[0] == originalVertex1[0] && curV1[1] == originalVertex1[1]
+                && curV2[0] == originalVertex2[0] && curV2[1] == originalVertex2[1]
+                && curV3[0] == originalVertex3[0] && curV3[1] == originalVertex3[1]
+            ) {
                 // If we are here, this vertex needs to be moved to the correct position
                 allVertices[k] = new vec2(movedVertex1[0], movedVertex1[1]);
                 allVertices[k + 1] = new vec2(movedVertex2[0], movedVertex2[1]);
                 allVertices[k + 2] = new vec2(movedVertex3[0], movedVertex3[1]);
 
-                // Save remove step as a erase operation so we can undo/redo
-
-
                 // Save add step as a draw operation so we can undo/redo
+                var newTri = [
+                    allVertices[k],
+                    allVertices[k + 1],
+                    allVertices[k + 2]
+                ]
 
+                strokes[currentStroke].push(new Stroke(newTri, currentColorVec4[k], StrokeType.Draw));
+
+                lastOpWasUndoOrRedo = false;
+                
                 continue;
             }
         }
+
+        lastOpWasUndoOrRedo = false;
     }
+
+    currentStroke++;
 }
 
 function isTriangleInsideSelection(curTriangle) {
@@ -637,8 +685,8 @@ function handleSelectionMouseUp(event, canvas) {
         originalSelectedTriangleVertices.push(selectedTriangleVertices[j]);
     }
 
-    console.log("made selection!");
-    console.log(selectedTriangleVertices);
+    // console.log("made selection!");
+    // console.log(selectedTriangleVertices);
 
     renderSelectedTriangles();
 }
@@ -781,16 +829,10 @@ function drawHandler(event, canvas) {
         strokes[currentStroke].push(new Stroke(clickedTriangle, currentColor, StrokeType.Draw));
     }
     else if (isErasing) {
-        console.log("allVertices");
-        console.log(allVertices);
-        console.log("allVertices");
-
         for (let i = 0; i < allVertices.length; i = i + 3) {
-            console.log("-----");
             if (isSameTriangle(i, clickedTriangle)) {
                 strokes[currentStroke].push(new Stroke(allVertices.splice(i, 3), currentColorVec4.splice(i, 3)[0], StrokeType.Erase));
-            }
-            console.log("-----");
+            };
         }
     }
 
@@ -822,10 +864,6 @@ function isSameTriangle(allVerticesStartingIndex, clickedTriangle) {
         || comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex + 1], clickedTriangle[2], ACCURACY)
         || comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex + 2], clickedTriangle[2], ACCURACY);
 
-    console.log(clickedShortestExists);
-    console.log(clickedSecondShortestExists);
-    console.log(clickedCenterExists);
-    console.log(clickedShortestExists && clickedSecondShortestExists && clickedCenterExists);
     return clickedShortestExists && clickedSecondShortestExists && clickedCenterExists;
 }
 
@@ -1004,7 +1042,7 @@ function updateViewMatrix() {
     canvasContainer.width = Math.max(parseInt(containerStyle.width, 10), canvas.width + 3000);
     canvasContainer.height = Math.max(parseInt(containerStyle.height, 10), canvas.height + 300);
 
-    console.log("new height", canvasContainer.height)
+    // console.log("new height", canvasContainer.height)
     // Update the viewport
     gl.viewport(0, 0, newCanvasWidth, newCanvasHeight);
     render();
@@ -1016,7 +1054,7 @@ function updateCanvasScale(event, slideBtn) {
     if (isSliding) {
         sliderValue = slideBtn.value;
         zoomFactor = sliderToZoom(sliderValue, MAX_ZOOM, MIN_ZOOM, MAX_SLIDER, MIN_SLIDER);
-        console.log("value:", zoomFactor)
+        // console.log("value:", zoomFactor)
         isSliding = false;
     }
     else {
@@ -1029,7 +1067,7 @@ function updateCanvasScale(event, slideBtn) {
         }
 
         sliderValue = zoomToSlider(zoomFactor, MAX_ZOOM, MIN_ZOOM, MAX_SLIDER, MIN_SLIDER);
-        console.log("value:", sliderValue)
+        // console.log("value:", sliderValue)
     }
 
     slideBtn.value = sliderValue;
@@ -1181,7 +1219,7 @@ window.onload = function init() {
 
     canvas = document.getElementById( "gl_canvas" );
     canvasContainer = document.getElementById( "canvas-container" );
-    console.log("get container", getComputedStyle(canvasContainer).width)
+    // console.log("get container", getComputedStyle(canvasContainer).width)
     canvas.width = CANVAS_WIDTH;
     canvas.height = CANVAS_HEIGHT;
     
@@ -1399,14 +1437,14 @@ function saveFile() {
 
 function changeLayerVis(layerId, img) {
     var curLayer = layerStack.filter((layer) => layer.id == layerId)[0];
-    console.log("Alio1", curLayer)
+    // console.log("Alio1", curLayer)
 
     if (curLayer.isVisible) {
-        console.log("Alio2")
+        // console.log("Alio2")
         curLayer.setVisible(false);
         img.src = './icons/icons8-not-visible-30.png';
     } else {
-        console.log("Alio3")
+        // console.log("Alio3")
         curLayer.setVisible(true);
         img.src = './icons/icons8-eye-30.png';
     }
@@ -1422,7 +1460,7 @@ function addLayer() {
     visButton.addEventListener("click", function() {
         const layerId = this.getAttribute('value');
         const img = this.querySelector('img');
-        console.log("Alio")
+        // console.log("Alio")
         changeLayerVis(layerId, img);
     }); 
 
@@ -1488,7 +1526,7 @@ function removeLayerDiv() {
 }
 
 function deleteLayer() {
-    console.log("active:", activeLayerId)
+    // console.log("active:", activeLayerId)
     // There should be at least one layer
     if (layerNo <= 1) {
         return;
@@ -1551,7 +1589,7 @@ function loadFile(file) {
             try {
                 var jsonData = JSON.parse(jsonContent);
 
-                console.log(jsonData);
+                // console.log(jsonData);
             } catch (error) {
                 console.error("Error parsing JSON:", error);
             }
@@ -1829,7 +1867,7 @@ function renderWithoutSelectionInAllVertices() {
                 && curV2[0] == originalVertex2[0] && curV2[1] == originalVertex2[1]
                 && curV3[0] == originalVertex3[0] && curV3[1] == originalVertex3[1]
             ) {
-                console.log("this triangle is selected!");
+                // console.log("this triangle is selected!");
                 continue;
             }
 
