@@ -30,7 +30,6 @@ var startSelectionY;
 var isMouseDown = false;
 var isSliding = false;
 var isMoving = false;
-var allBuffers = [];//
 var pointsGrid = [];
 var glGrid = [];
 var gridCells = [];//
@@ -49,10 +48,10 @@ var undoneStrokes = [];
 var currentStroke = 0;
 var allVertices = {};
 var theBuffer = {};
+var currentColorVec4 = {};
 var theColorBuffer = {};
 var selectionBuffer;
 var selectionColorBuffer;
-var currentColorVec4 = {};
 var currentColor = vec4(1.0, 0.0, 0.0, 1.0);
 var currentColorHTMLId = null;
 var editButtonsToBeUpdated = [];
@@ -1395,10 +1394,12 @@ function openFile() {
 }
 
 function saveFile() {
+    // update buttons ui
     updateButtonBackground();
     resetAllModes();
     resetSelectionData();
-  
+    
+    // create a file and download
     createAndDownloadJSONFile();
 }
 
@@ -1461,6 +1462,43 @@ function addLayer() {
     return [layerDiv, newLayer];
 }
 
+function addLayerFromFile(newLayerIdNo) {
+    layerNo++;
+
+    const newLayer = new Layer(newLayerIdNo);
+
+    layerStack.push(newLayer);
+
+    allVertices[newLayer.id] = [];
+
+    console.log("new layer is added", allVertices)
+    currentColorVec4[newLayer.id] = [];
+
+    theBuffer[newLayer.id] = gl.createBuffer();
+    theColorBuffer[newLayer.id] = gl.createBuffer();
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer[newLayer.id]);  
+    gl.bindBuffer(gl.ARRAY_BUFFER, theColorBuffer[newLayer.id]);
+
+    const [visButton, layerDiv] = createLayerDiv(newLayerIdNo);
+
+    visButton.addEventListener("click", function() {
+        const layerId = this.getAttribute('value');
+        const img = this.querySelector('img');
+        console.log("Alio")
+        changeLayerVis(layerId, img);
+    }); 
+
+    layerDiv.addEventListener("click", function() {
+        document.getElementById(activeLayerId).style.backgroundColor = "#c7c7c7bc";
+        activeLayerId = this.id;
+        activeLayer = getLayerById(activeLayerId);
+        layerDiv.style.backgroundColor = "#8d8db2";
+    }); 
+
+    return [layerDiv, newLayer];
+}
+
 function addFirstLayer() {
     if (layerNo != 0) {
         return;
@@ -1470,6 +1508,14 @@ function addFirstLayer() {
     newLayerDiv.style.backgroundColor = "#8d8db2";
 
     activeLayerId = "l-" + lastLayerIdNo;
+    activeLayer = newLayer;
+}
+
+function addFirstLayerFromFile(newLayerIdNo) {
+    const [newLayerDiv, newLayer] = addLayerFromFile(newLayerIdNo);
+    newLayerDiv.style.backgroundColor = "#8d8db2";
+
+    activeLayerId = "l-" + newLayerIdNo;
     activeLayer = newLayer;
 }
 
@@ -1506,8 +1552,8 @@ function createLayerDiv(layerIdNo) {
     return [buttonElement, layerDiv];
 }
 
-function removeLayerDiv() {
-    const layerDiv = document.getElementById(activeLayerId);
+function removeLayerDiv(layerId) {
+    const layerDiv = document.getElementById(layerId);
 
     if (layerDiv) {
         layerDiv.remove();
@@ -1521,7 +1567,7 @@ function deleteLayer() {
         return;
     }
 
-    removeLayerDiv();
+    removeLayerDiv(activeLayerId);
 
     // remove the current layer data from the all vertices
     delete allVertices.activeLayer;
@@ -1588,7 +1634,37 @@ function loadFile(file) {
             try {
                 var jsonData = JSON.parse(jsonContent);
 
-                console.log(jsonData);
+                // remove old layers
+                layerStack.forEach(layer => removeLayerDiv(layer.id));
+                
+                const prevLayerStack = jsonData.layerStack;
+
+                if (prevLayerStack.length > 0) {
+                    addFirstLayerFromFile(parseInt(prevLayerStack[0].id.match(/\d+/)[0], 10));
+
+                    for (let i = 1; i < prevLayerStack.length; i++) {
+                        addLayerFromFile(parseInt(prevLayerStack[i].id.match(/\d+/)[0], 10));
+                    }
+                } 
+
+                // set data
+                pointsGrid = jsonData.pointsGrid;
+                glGrid = jsonData.glGrid;
+                gridCells = jsonData.gridCells;
+                // layerStack = jsonData.layerStack;
+                allVertices = jsonData.allVertices;
+                // theBuffer = jsonData.theBuffer;
+                currentColorVec4 = jsonData.currentColorVec4;
+                // theColorBuffer = jsonData.theColorBuffer;
+                lastLayerIdNo = jsonData.lastLayerIdNo;
+                layerNo = layerNo; 
+                
+                
+                               
+
+                console.log("layerstack:", layerStack);
+                render();
+                
             } catch (error) {
                 console.error("Error parsing JSON:", error);
             }
@@ -1596,15 +1672,12 @@ function loadFile(file) {
 
         // Read the file
         reader.readAsText(file);
+        render();
     }
 }
 
 function createAndDownloadJSONFile() {
-    var jsonData = {
-        name: ["John Doe", "abc", 2],
-        age: 30,
-        email: "john@example.com"
-    };
+    var jsonData = createSaveData();
 
     // Convert the object to a JSON string          // number of spaces before json values
     var jsonContent = JSON.stringify(jsonData, null, 2);
@@ -1625,6 +1698,22 @@ function createAndDownloadJSONFile() {
     // Clean up
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
+}
+
+function createSaveData() {
+    var data = {
+        pointsGrid: pointsGrid,
+        glGrid: glGrid,
+        gridCells: gridCells,
+        allVertices: allVertices,
+        theBuffer: theBuffer,
+        currentColorVec4: currentColorVec4,
+        theColorBuffer: theColorBuffer,
+        layerStack: layerStack,
+        lastLayerIdNo: lastLayerIdNo
+    };
+
+    return data;
 }
 
 function renderMovingSelection() {
@@ -1827,7 +1916,7 @@ function render() {
     gl.clear(gl.COLOR_BUFFER_BIT); 
 
     for (let i = layerStack.length - 1; i >= 0; i--) {
-        // console.log("cur layer:", layerStack[i])
+        console.log("cur layer:", layerStack[i])
 
         let verticeNumberToRender = allVertices[layerStack[i].id].length;
         // If layer is not visible do not render it
