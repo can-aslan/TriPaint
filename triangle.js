@@ -762,9 +762,6 @@ function handleSelectionMouseUp(event, canvas) {
         originalSelectedTriangleVertices.push(selectedTriangleVertices[j]);
     }
 
-    // console.log("made selection!");
-    // console.log(selectedTriangleVertices);
-
     renderSelectedTriangles();
 }
 
@@ -1304,7 +1301,6 @@ window.onload = function init() {
 
     canvas = document.getElementById( "gl_canvas" );
     canvasContainer = document.getElementById( "canvas-container" );
-    // console.log("get container", getComputedStyle(canvasContainer).width)
     canvas.width = CANVAS_WIDTH;
     canvas.height = CANVAS_HEIGHT;
     
@@ -1338,20 +1334,16 @@ window.onload = function init() {
         isMouseDown = false;
       
         if (isSelecting) {
-            console.log("a");
             handleSelectionMouseUp(event, canvas);
         }
         else if (isDrawing || isErasing) {
-            console.log("b");
             currentStroke++;
         }
         else if (isMoveSelectionButtonMode && hasCompleteSelection) {
-            console.log("c");
             handleSelectionMovementMouseUp(event, canvas);
             resetSelectionData();
         }
         else if (isCopying && hasCompleteSelection) {
-            console.log("d");
             handleCopyMovementMouseUp(event, canvas);
             resetSelectionData();
         }
@@ -1556,7 +1548,6 @@ function addLayer() {
     visButton.addEventListener("click", function() {
         const layerId = this.getAttribute('value');
         const img = this.querySelector('img');
-        // console.log("Alio")
         changeLayerVis(layerId, img);
     }); 
 
@@ -1592,7 +1583,6 @@ function addLayerFromFile(newLayerIdNo) {
     visButton.addEventListener("click", function() {
         const layerId = this.getAttribute('value');
         const img = this.querySelector('img');
-        console.log("Alio")
         changeLayerVis(layerId, img);
     }); 
 
@@ -2051,7 +2041,6 @@ function renderWithoutSelectionInAllVertices() {
                 && curV2[0] == originalVertex2[0] && curV2[1] == originalVertex2[1]
                 && curV3[0] == originalVertex3[0] && curV3[1] == originalVertex3[1]
             ) {
-                // console.log("this triangle is selected!");
                 continue;
             }
 
@@ -2105,7 +2094,6 @@ function render() {
             verticeNumberToRender = 0;
         }
 
-        // console.log("the bufer", theBuffer[layerStack[i]])
         // Vertex Buffer
         gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer[layerStack[i].id]);
         gl.bufferData(gl.ARRAY_BUFFER, flatten(allVertices[layerStack[i].id]), gl.STATIC_DRAW); 
