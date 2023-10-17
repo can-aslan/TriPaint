@@ -32,7 +32,6 @@ var startSelectionY;
 var isMouseDown = false;
 var isSliding = false;
 var isMoving = false;
-var allBuffers = [];//
 var pointsGrid = [];
 var glGrid = [];
 var gridCells = [];//
@@ -49,12 +48,12 @@ var lastOpWasUndoOrRedo = false;
 var strokes = [];
 var undoneStrokes = [];
 var currentStroke = 0;
-var allVertices = [];
-var theBuffer;
-var theColorBuffer;
+var allVertices = {};
+var theBuffer = {};
+var currentColorVec4 = {};
+var theColorBuffer = {};
 var selectionBuffer;
 var selectionColorBuffer;
-var currentColorVec4 = [];
 var currentColor = vec4(1.0, 0.0, 0.0, 1.0);
 var currentColorHTMLId = null;
 var editButtonsToBeUpdated = [];
@@ -99,13 +98,15 @@ var layerNo = 0;
 var lastLayerIdNo = -1;
 var layerStack = [];
 var activeLayerId = -1; // l-0
+var activeLayer = null;
 var layerAreaDiv;
 // console.log(layerStack)
 
 class Stroke {
-    constructor(triangle, color, type) {
+    constructor(triangle, color, type, layerId) {
         this.triangle = triangle;
         this.color = color;
+        this.layerId = layerId;
 
         switch (type) {
             case StrokeType.Draw:
@@ -901,22 +902,44 @@ function drawHandler(event, canvas) {
         cellClicked.p5
     ];
 
-    if (isDrawing) {    
-        allVertices.push(clickedTriangle[0]);
-        allVertices.push(clickedTriangle[1]);
-        allVertices.push(clickedTriangle[2]);
+    if (isDrawing) { 
+        // Get allVertices of the active layer
+        const allVerticesActive = allVertices[activeLayerId]; 
+        const currentColorVec4Active = currentColorVec4[activeLayerId]; 
 
-        currentColorVec4.push(currentColor);
-        currentColorVec4.push(currentColor);
-        currentColorVec4.push(currentColor);
+        console.log("all ver:", allVertices)
+        // console.log("color ver:", currentColorVec4.keys)
+        console.log("active lay:", activeLayer)
 
-        strokes[currentStroke].push(new Stroke(clickedTriangle, currentColor, StrokeType.Draw));
+        // for (const key in allVertices) {
+        //     if (allVertices.hasOwnProperty(key)) {
+        //         const keyString = Object.keys(key).map(prop => `${prop}: ${key[prop]}`).join(', ');
+        //         const value = allVertices[key];
+        //         console.log(`{ ${keyString} }:`);
+        //     }
+        // }
+
+        allVerticesActive.push(clickedTriangle[0]);
+        allVerticesActive.push(clickedTriangle[1]);
+        allVerticesActive.push(clickedTriangle[2]);
+
+        currentColorVec4Active.push(currentColor);
+        currentColorVec4Active.push(currentColor);
+        currentColorVec4Active.push(currentColor);
+
+        strokes[currentStroke].push(new Stroke(clickedTriangle, currentColor, StrokeType.Draw, activeLayerId));
+
+        // gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
+        // gl.bufferData(gl.ARRAY_BUFFER, flatten(allVertices), gl.STATIC_DRAW);
     }
     else if (isErasing) {
-        for (let i = 0; i < allVertices.length; i = i + 3) {
-            if (isSameTriangle(i, clickedTriangle)) {
-                strokes[currentStroke].push(new Stroke(allVertices.splice(i, 3), currentColorVec4.splice(i, 3)[0], StrokeType.Erase));
-            };
+        const allVerticesActive = allVertices[activeLayerId]; 
+        const currentColorVec4Active = currentColorVec4[activeLayerId]; 
+
+        for (let i = 0; i < allVerticesActive.length; i = i + 3) {
+            if (isSameTriangle(i, clickedTriangle, activeLayerId)) {
+                strokes[currentStroke].push(new Stroke(allVerticesActive.splice(i, 3), currentColorVec4Active.splice(i, 3)[0], StrokeType.Erase, activeLayerId));
+            }
         }
     }
 
@@ -930,23 +953,24 @@ function comparePointFloationPointWithAccuracy(i, j, accuracy) {
 
 // Checks if the given clicked triangle exists in the
 // first three (after allVerticesStartingIndex) items in the allVertices array
-function isSameTriangle(allVerticesStartingIndex, clickedTriangle) {
+function isSameTriangle(allVerticesStartingIndex, clickedTriangle, layerId) {
+    const allVerticesActive = allVertices[layerId]; 
     const ACCURACY = 0.01;
 
     let clickedShortestExists =
-        comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex], clickedTriangle[0], ACCURACY)
-        || comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex + 1], clickedTriangle[0], ACCURACY)
-        || comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex + 2], clickedTriangle[0], ACCURACY);
+        comparePointFloationPointWithAccuracy(allVerticesActive[allVerticesStartingIndex], clickedTriangle[0], ACCURACY)
+        || comparePointFloationPointWithAccuracy(allVerticesActive[allVerticesStartingIndex + 1], clickedTriangle[0], ACCURACY)
+        || comparePointFloationPointWithAccuracy(allVerticesActive[allVerticesStartingIndex + 2], clickedTriangle[0], ACCURACY);
 
     let clickedSecondShortestExists =
-        comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex], clickedTriangle[1], ACCURACY)
-        || comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex + 1], clickedTriangle[1], ACCURACY)
-        || comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex + 2], clickedTriangle[1], ACCURACY);
+        comparePointFloationPointWithAccuracy(allVerticesActive[allVerticesStartingIndex], clickedTriangle[1], ACCURACY)
+        || comparePointFloationPointWithAccuracy(allVerticesActive[allVerticesStartingIndex + 1], clickedTriangle[1], ACCURACY)
+        || comparePointFloationPointWithAccuracy(allVerticesActive[allVerticesStartingIndex + 2], clickedTriangle[1], ACCURACY);
 
     let clickedCenterExists =
-        comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex], clickedTriangle[2], ACCURACY)
-        || comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex + 1], clickedTriangle[2], ACCURACY)
-        || comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex + 2], clickedTriangle[2], ACCURACY);
+        comparePointFloationPointWithAccuracy(allVerticesActive[allVerticesStartingIndex], clickedTriangle[2], ACCURACY)
+        || comparePointFloationPointWithAccuracy(allVerticesActive[allVerticesStartingIndex + 1], clickedTriangle[2], ACCURACY)
+        || comparePointFloationPointWithAccuracy(allVerticesActive[allVerticesStartingIndex + 2], clickedTriangle[2], ACCURACY);
 
     return clickedShortestExists && clickedSecondShortestExists && clickedCenterExists;
 }
@@ -981,23 +1005,23 @@ function undoLastStroke() {
         var curColor = currentStrokeObj.color;
 
         if (currentStrokeObj.type == StrokeType.Draw) {
-            for (let i = 0; i < allVertices.length; i = i + 3) {
-                if (currentColorVec4[i] == curColor && isSameTriangle(i, curTriangle)) {
-                    allVertices.splice(i, 3);
-                    currentColorVec4.splice(i, 3);
+            for (let i = 0; i < allVertices[currentStrokeObj.layerId].length; i = i + 3) {
+                if (currentColorVec4[currentStrokeObj.layerId][i] == curColor && isSameTriangle(i, curTriangle, currentStrokeObj.layerId)) {
+                    allVertices[currentStrokeObj.layerId].splice(i, 3);
+                    currentColorVec4[currentStrokeObj.layerId].splice(i, 3);
 
                     break;
                 }
             }
         }
         else if (currentStrokeObj.type == StrokeType.Erase) {
-            allVertices.push(curTriangle[0]);
-            allVertices.push(curTriangle[1]);
-            allVertices.push(curTriangle[2]);
+            allVertices[currentStrokeObj.layerId].push(curTriangle[0]);
+            allVertices[currentStrokeObj.layerId].push(curTriangle[1]);
+            allVertices[currentStrokeObj.layerId].push(curTriangle[2]);
 
-            currentColorVec4.push(curColor);
-            currentColorVec4.push(curColor);
-            currentColorVec4.push(curColor);
+            currentColorVec4[currentStrokeObj.layerId].push(curColor);
+            currentColorVec4[currentStrokeObj.layerId].push(curColor);
+            currentColorVec4[currentStrokeObj.layerId].push(curColor);
         }
     }
 
@@ -1025,19 +1049,19 @@ function redoLastUndoneStroke() {
         var curColor = currentStrokeObj.color;
 
         if (currentStrokeObj.type == StrokeType.Draw) {
-            allVertices.push(curTriangle[0]);
-            allVertices.push(curTriangle[1]);
-            allVertices.push(curTriangle[2]);
+            allVertices[currentStrokeObj.layerId].push(curTriangle[0]);
+            allVertices[currentStrokeObj.layerId].push(curTriangle[1]);
+            allVertices[currentStrokeObj.layerId].push(curTriangle[2]);
 
-            currentColorVec4.push(curColor);
-            currentColorVec4.push(curColor);
-            currentColorVec4.push(curColor);
+            currentColorVec4[currentStrokeObj.layerId].push(curColor);
+            currentColorVec4[currentStrokeObj.layerId].push(curColor);
+            currentColorVec4[currentStrokeObj.layerId].push(curColor);
         }
         else if (currentStrokeObj.type == StrokeType.Erase) {
-            for (let i = 0; i < allVertices.length; i = i + 3) {
-                if (currentColorVec4[i] == curColor && isSameTriangle(i, curTriangle)) {
-                    allVertices.splice(i, 3);
-                    currentColorVec4.splice(i, 3);
+            for (let i = 0; i < allVertices[currentStrokeObj.layerId].length; i = i + 3) {
+                if (currentColorVec4[currentStrokeObj.layerId][i] == curColor && isSameTriangle(i, curTriangle, currentStrokeObj.layerId)) {
+                    allVertices[currentStrokeObj.layerId].splice(i, 3);
+                    currentColorVec4[currentStrokeObj.layerId].splice(i, 3);
 
                     break;
                 }
@@ -1323,6 +1347,8 @@ window.onload = function init() {
     gl.viewport( 0, 0, canvas.width, canvas.height );
     gl.clearColor( 1.0, 1.0, 1.0, 1.0 );
 
+    addFirstLayer();
+
     // Create a view matrix (identity matrix)
     viewMatrix = mat4();
 
@@ -1435,12 +1461,6 @@ window.onload = function init() {
     selectionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, selectionBuffer);
 
-    theBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
-  
-    theColorBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, theColorBuffer);
-
     selectionColorBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, selectionColorBuffer);
 
@@ -1516,10 +1536,12 @@ function openFile() {
 }
 
 function saveFile() {
+    // update buttons ui
     updateButtonBackground();
     resetAllModes();
     resetSelectionData();
-  
+    
+    // create a file and download
     createAndDownloadJSONFile();
 }
 
@@ -1536,13 +1558,33 @@ function changeLayerVis(layerId, img) {
         curLayer.setVisible(true);
         img.src = './icons/icons8-eye-30.png';
     }
+
+    render();
+}
+
+function getLayerById(layerId) {
+    return layerStack.filter((layer) => layer.id == layerId)[0];
 }
 
 function addLayer() {
     lastLayerIdNo++;
     layerNo++;
 
-    layerStack.push(new Layer(lastLayerIdNo));
+    const newLayer = new Layer(lastLayerIdNo);
+
+    layerStack.push(newLayer);
+
+    allVertices[newLayer.id] = [];
+
+    console.log("new layer is added", allVertices)
+    currentColorVec4[newLayer.id] = [];
+
+    theBuffer[newLayer.id] = gl.createBuffer();
+    theColorBuffer[newLayer.id] = gl.createBuffer();
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer[newLayer.id]);  
+    gl.bindBuffer(gl.ARRAY_BUFFER, theColorBuffer[newLayer.id]);
+
     const [visButton, layerDiv] = createLayerDiv(lastLayerIdNo);
 
     visButton.addEventListener("click", function() {
@@ -1555,10 +1597,48 @@ function addLayer() {
     layerDiv.addEventListener("click", function() {
         document.getElementById(activeLayerId).style.backgroundColor = "#c7c7c7bc";
         activeLayerId = this.id;
+        activeLayer = getLayerById(activeLayerId);
         layerDiv.style.backgroundColor = "#8d8db2";
     }); 
 
-    return layerDiv;
+    return [layerDiv, newLayer];
+}
+
+function addLayerFromFile(newLayerIdNo) {
+    layerNo++;
+
+    const newLayer = new Layer(newLayerIdNo);
+
+    layerStack.push(newLayer);
+
+    allVertices[newLayer.id] = [];
+
+    console.log("new layer is added", allVertices)
+    currentColorVec4[newLayer.id] = [];
+
+    theBuffer[newLayer.id] = gl.createBuffer();
+    theColorBuffer[newLayer.id] = gl.createBuffer();
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer[newLayer.id]);  
+    gl.bindBuffer(gl.ARRAY_BUFFER, theColorBuffer[newLayer.id]);
+
+    const [visButton, layerDiv] = createLayerDiv(newLayerIdNo);
+
+    visButton.addEventListener("click", function() {
+        const layerId = this.getAttribute('value');
+        const img = this.querySelector('img');
+        console.log("Alio")
+        changeLayerVis(layerId, img);
+    }); 
+
+    layerDiv.addEventListener("click", function() {
+        document.getElementById(activeLayerId).style.backgroundColor = "#c7c7c7bc";
+        activeLayerId = this.id;
+        activeLayer = getLayerById(activeLayerId);
+        layerDiv.style.backgroundColor = "#8d8db2";
+    }); 
+
+    return [layerDiv, newLayer];
 }
 
 function addFirstLayer() {
@@ -1566,10 +1646,19 @@ function addFirstLayer() {
         return;
     }
 
-    const newLayer = addLayer();
-    newLayer.style.backgroundColor = "#8d8db2";
+    const [newLayerDiv, newLayer] = addLayer();
+    newLayerDiv.style.backgroundColor = "#8d8db2";
 
     activeLayerId = "l-" + lastLayerIdNo;
+    activeLayer = newLayer;
+}
+
+function addFirstLayerFromFile(newLayerIdNo) {
+    const [newLayerDiv, newLayer] = addLayerFromFile(newLayerIdNo);
+    newLayerDiv.style.backgroundColor = "#8d8db2";
+
+    activeLayerId = "l-" + newLayerIdNo;
+    activeLayer = newLayer;
 }
 
 function createLayerDiv(layerIdNo) {
@@ -1605,8 +1694,8 @@ function createLayerDiv(layerIdNo) {
     return [buttonElement, layerDiv];
 }
 
-function removeLayerDiv() {
-    const layerDiv = document.getElementById(activeLayerId);
+function removeLayerDiv(layerId) {
+    const layerDiv = document.getElementById(layerId);
 
     if (layerDiv) {
         layerDiv.remove();
@@ -1620,7 +1709,11 @@ function deleteLayer() {
         return;
     }
 
-    removeLayerDiv();
+    removeLayerDiv(activeLayerId);
+
+    // remove the current layer data from the all vertices
+    delete allVertices.activeLayer;
+    delete currentColorVec4.activeLayer;
 
     var index = layerStack.findIndex((layer) => layer.id === activeLayerId);
     
@@ -1634,6 +1727,8 @@ function deleteLayer() {
         activeLayerId = layerStack[index].id;
     }
 
+    activeLayer = getLayerById(activeLayerId);
+
     document.getElementById(activeLayerId).style.backgroundColor = "#8d8db2";
 }
 
@@ -1643,8 +1738,10 @@ function moveDownLayer() {
 
     if (index < layerStack.length - 1) {
         layerAreaDiv.insertBefore(layers[index + 1], layers[index]);
-        swapLayers(index, index + 1)
+        swapLayers(index, index + 1);
     }  
+
+    render();
 }
 
 function moveUpLayer() {
@@ -1653,8 +1750,10 @@ function moveUpLayer() {
 
     if (index > 0) {
         layerAreaDiv.insertBefore(layers[index], layers[index - 1]);
-        swapLayers(index, index - 1)
-    }    
+        swapLayers(index, index - 1);
+    }  
+    
+    render();
 }
 
 function swapLayers(curLayerIndex, swapLayerIndex) {
@@ -1677,7 +1776,36 @@ function loadFile(file) {
             try {
                 var jsonData = JSON.parse(jsonContent);
 
-                // console.log(jsonData);
+                // remove old layers
+                layerStack.forEach(layer => removeLayerDiv(layer.id));
+                
+                const prevLayerStack = jsonData.layerStack;
+
+                if (prevLayerStack.length > 0) {
+                    addFirstLayerFromFile(parseInt(prevLayerStack[0].id.match(/\d+/)[0], 10));
+
+                    for (let i = 1; i < prevLayerStack.length; i++) {
+                        addLayerFromFile(parseInt(prevLayerStack[i].id.match(/\d+/)[0], 10));
+                    }
+                } 
+
+                // set data
+                pointsGrid = jsonData.pointsGrid;
+                glGrid = jsonData.glGrid;
+                gridCells = jsonData.gridCells;
+                // layerStack = jsonData.layerStack;
+                allVertices = jsonData.allVertices;
+                // theBuffer = jsonData.theBuffer;
+                currentColorVec4 = jsonData.currentColorVec4;
+                // theColorBuffer = jsonData.theColorBuffer;
+                lastLayerIdNo = jsonData.lastLayerIdNo;
+                layerNo = layerNo; 
+                
+                
+                               
+
+                console.log("layerstack:", layerStack);
+                render();
             } catch (error) {
                 console.error("Error parsing JSON:", error);
             }
@@ -1685,15 +1813,12 @@ function loadFile(file) {
 
         // Read the file
         reader.readAsText(file);
+        render();
     }
 }
 
 function createAndDownloadJSONFile() {
-    var jsonData = {
-        name: ["John Doe", "abc", 2],
-        age: 30,
-        email: "john@example.com"
-    };
+    var jsonData = createSaveData();
 
     // Convert the object to a JSON string          // number of spaces before json values
     var jsonContent = JSON.stringify(jsonData, null, 2);
@@ -1714,6 +1839,22 @@ function createAndDownloadJSONFile() {
     // Clean up
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
+}
+
+function createSaveData() {
+    var data = {
+        pointsGrid: pointsGrid,
+        glGrid: glGrid,
+        gridCells: gridCells,
+        allVertices: allVertices,
+        theBuffer: theBuffer,
+        currentColorVec4: currentColorVec4,
+        theColorBuffer: theColorBuffer,
+        layerStack: layerStack,
+        lastLayerIdNo: lastLayerIdNo
+    };
+
+    return data;
 }
 
 function renderMovingSelection() {
@@ -1996,30 +2137,40 @@ function renderWithoutSelectionInAllVertices() {
 }
 
 function render() {
-    if (!isMovingCompleteSelection) { hasCompleteSelection = false; }
-
-    gl.clear(gl.COLOR_BUFFER_BIT); 
+    if (!isMovingCompleteSelection) { hasCompleteSelection = false; }    
 
     const viewMatrixLocation = gl.getUniformLocation(program, "viewMatrix");
     gl.uniformMatrix4fv(viewMatrixLocation, false, flatten(viewMatrix));
+    gl.clear(gl.COLOR_BUFFER_BIT); 
 
-    // Vertex Buffer
-    gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, flatten(allVertices), gl.STATIC_DRAW); 
+    for (let i = layerStack.length - 1; i >= 0; i--) {
+        console.log("cur layer:", layerStack[i])
 
-    // Associate shader variables and draw the vertex buffer
-    var vPosition = gl.getAttribLocation(program, "vPosition");
-    gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(vPosition);
+        let verticeNumberToRender = allVertices[layerStack[i].id].length;
+        // If layer is not visible do not render it
+        if (!layerStack[i].isVisible) {
+            verticeNumberToRender = 0;
+        }
 
-    // Color Buffer
-    gl.bindBuffer(gl.ARRAY_BUFFER, theColorBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, flatten(currentColorVec4), gl.STATIC_DRAW);
-  
-    // Associate shader variables and draw the color buffer
-    var vColor = gl.getAttribLocation(program, "vColor");
-    gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(vColor);
+        // console.log("the bufer", theBuffer[layerStack[i]])
+        // Vertex Buffer
+        gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer[layerStack[i].id]);
+        gl.bufferData(gl.ARRAY_BUFFER, flatten(allVertices[layerStack[i].id]), gl.STATIC_DRAW); 
 
-    gl.drawArrays(gl.TRIANGLES, 0, allVertices.length);
+        // Associate shader variables and draw the vertex buffer
+        var vPosition = gl.getAttribLocation(program, "vPosition");
+        gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(vPosition);
+
+        // Color Buffer
+        gl.bindBuffer(gl.ARRAY_BUFFER, theColorBuffer[layerStack[i].id]);
+        gl.bufferData(gl.ARRAY_BUFFER, flatten(currentColorVec4[layerStack[i].id]), gl.STATIC_DRAW);
+    
+        // Associate shader variables and draw the color buffer
+        var vColor = gl.getAttribLocation(program, "vColor");
+        gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(vColor);
+
+        gl.drawArrays(gl.TRIANGLES, 0, verticeNumberToRender);
+    }
 }
