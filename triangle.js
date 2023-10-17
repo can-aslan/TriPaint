@@ -67,6 +67,8 @@ var selectCoords1;
 var selectCoords2;
 var selectionRectangleVertices = [];
 var selectedTriangleVertices = [];
+var newSelectedTrianglesVertices = [];
+var originalSelectedTriangleVertices = [];
 var selectedTriangleColors = [];
 var selectedTriangleActualColors = [];
 var selectedAreaStartTriangle = [];
@@ -422,104 +424,99 @@ function moveSelectionContinuos(event, canvas) {
 
     // If we are here, we have changed cells
     if (!selectedAreaStartCell.isSameAs(currentCell)) {
-        // Calculate x and y changes
-        xChange = currentCell.p1[0] - selectedAreaStartCell.p1[0];
-        yChange = currentCell.p1[1] - selectedAreaStartCell.p1[1];
+        newSelectedTrianglesVertices.splice(0, newSelectedTrianglesVertices.length);
 
-        // Update all previous triangles in the selection array (erase all of them)
-        if (strokes[currentStroke] === undefined) {
-            strokes[currentStroke] = [];
-        }
-    
-        if (lastOpWasUndoOrRedo) { // If drawing right after undo, remove previous undone ops
-            undoneStrokes.splice(0, undoneStrokes.length);
+        xChange = currentCell.p5[0] - selectedAreaStartCell.p5[0];
+        yChange = currentCell.p5[1] - selectedAreaStartCell.p5[1];
+
+        for (let i = 0; i < selectedTriangleVertices.length; i++) {
+            newSelectedTrianglesVertices.push(new vec2(selectedTriangleVertices[i][0] + xChange, selectedTriangleVertices[i][1] + yChange));
         }
 
-        for (let selTriStartInd = 0; selTriStartInd < selectedTriangleVertices.length; selTriStartInd = selTriStartInd + 3) {
-            var curSelectedTriangle = [
-                selectedTriangleVertices[selTriStartInd],
-                selectedTriangleVertices[selTriStartInd + 1],
-                selectedTriangleVertices[selTriStartInd + 2]
-            ];
-            
-            console.log("delete");
-            console.log(curSelectedTriangle);
-            console.log("delete");
-
-            for (let i = 0; i < allVertices.length; i = i + 3) {
-                if (isSameTriangle(i, curSelectedTriangle)) {
-                    strokes[currentStroke].push(new Stroke(allVertices.splice(i, 3), currentColorVec4.splice(i, 3)[0], StrokeType.Erase));
-                }
-            }
+        selectedTriangleVertices.splice(0, selectedTriangleVertices.length);
+        
+        for (let j = 0; j < newSelectedTrianglesVertices.length; j++) {
+            selectedTriangleVertices.push(newSelectedTrianglesVertices[j]);
         }
 
-        currentStroke++;
-
-        // Add all triangles in the selection array to their new places
-        if (strokes[currentStroke] === undefined) {
-            strokes[currentStroke] = [];
-        }
-    
-        if (lastOpWasUndoOrRedo) { // If drawing right after undo, remove previous undone ops
-            undoneStrokes.splice(0, undoneStrokes.length);
-        }
-
-        var visitedTriangles = [];
-        var continueModification = true;
-
-        for (let selTriStartInd = 0; selTriStartInd < selectedTriangleVertices.length; selTriStartInd = selTriStartInd + 3) {
-            var curSelectedTriangle = [
-                selectedTriangleVertices[selTriStartInd],
-                selectedTriangleVertices[selTriStartInd + 1],
-                selectedTriangleVertices[selTriStartInd + 2]
-            ];
-
-            // Check if the triangle has been visited before
-            console.log("add");
-            console.log(curSelectedTriangle);
-            console.log("add");
-
-            // visitedTriangles.push(curSelectedTriangle);
-
-            curSelectedTriangle[0][0] = curSelectedTriangle[0][0] + xChange;
-            curSelectedTriangle[1][0] = curSelectedTriangle[1][0] + xChange;
-            curSelectedTriangle[2][0] = curSelectedTriangle[2][0] + xChange;
-
-            curSelectedTriangle[0][1] = curSelectedTriangle[0][1] + yChange;
-            curSelectedTriangle[1][1] = curSelectedTriangle[1][1] + yChange;
-            curSelectedTriangle[2][1] = curSelectedTriangle[2][1] + yChange;
-
-            console.log("add after");
-            console.log(curSelectedTriangle);
-            console.log("add after");
-
-            allVertices.push(curSelectedTriangle[0]);
-            allVertices.push(curSelectedTriangle[1]);
-            allVertices.push(curSelectedTriangle[2]);
-
-            currentColorVec4.push(selectedTriangleActualColors[selTriStartInd]);
-            currentColorVec4.push(selectedTriangleActualColors[selTriStartInd + 1]);
-            currentColorVec4.push(selectedTriangleActualColors[selTriStartInd + 2]);
-
-            strokes[currentStroke].push(new Stroke(curSelectedTriangle, currentColor, StrokeType.Draw));
-
-            // gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
-            // gl.bufferData(gl.ARRAY_BUFFER, flatten(allVertices), gl.STATIC_DRAW);
-        }
-
-        currentStroke++;
-        lastOpWasUndoOrRedo = false;
-
-        // Update new move start
         selectedAreaStartCell = currentCell;
     }
 
-    renderMovingSelection();
+    // renderMovingSelection();
+    renderSelectedTrianglesWithBorderAndColor();
 }
 
-function handleCompleteSelectionMouseUp(event, canvas) {
-    if (!isSelecting || !hasCompleteSelection) {
+function handleSelectionMovementMouseUp(event, canvas) {
+    if (!isMoveSelectionButtonMode || !hasCompleteSelection) {
         return;
+    }
+
+    var visitedVertex = [];
+    var visitedBefore = false;
+
+    // Move all in the original to the locations in the selectedTriangleVertices
+    for (let i = 0; i < originalSelectedTriangleVertices.length; i = i + 3) {
+        var originalVertex1 = originalSelectedTriangleVertices[i];
+        var originalVertex2 = originalSelectedTriangleVertices[i + 1];
+        var originalVertex3 = originalSelectedTriangleVertices[i + 2];
+
+        var movedVertex1 = selectedTriangleVertices[i];
+        var movedVertex2 = selectedTriangleVertices[i + 1];
+        var movedVertex3 = selectedTriangleVertices[i + 2];
+
+        for (let j = 0; j < visitedVertex.length; j++) {
+            if (
+                visitedVertex[j][0] == originalVertex1[0] && visitedVertex[j][1] == originalVertex1[1]
+                && visitedVertex[j + 1][0] == originalVertex2[0] && visitedVertex[j + 1][1] == originalVertex2[1]
+                && visitedVertex[j + 2][0] == originalVertex3[0] && visitedVertex[j + 2][1] == originalVertex3[1]
+            ) {
+                // If we are here, vertex is visited before
+                visitedBefore = true;
+                break;
+            }
+        }
+
+        if (visitedBefore) {
+            visitedBefore = false;
+            continue;
+        }
+        
+        visitedVertex.push(originalVertex1);
+        visitedVertex.push(originalVertex2);
+        visitedVertex.push(originalVertex3);
+
+        // First, erase all "originalVertex" from the allVertex and respective color buffer data
+        for (let k = 0; k < allVertices.length; k = k + 3) {
+            var curV1 = allVertices[k];
+            var curV2 = allVertices[k + 1];
+            var curV3 = allVertices[k + 2];
+
+            if (
+                curV1[0] == originalVertex1[0] && curV1[1] == originalVertex1[1]
+                && curV2[0] == originalVertex2[0] && curV2[1] == originalVertex2[1]
+                && curV3[0] == originalVertex3[0] && curV3[1] == originalVertex3[1]
+            ) {
+                /*if (strokes[currentStroke] === undefined) {
+                    strokes[currentStroke] = [];
+                }
+            
+                if (lastOpWasUndoOrRedo) { // If drawing right after undo, remove previous undone ops
+                    undoneStrokes.splice(0, undoneStrokes.length);
+                }*/
+
+                // If we are here, this vertex needs to be moved to the correct position
+                allVertices[k] = new vec2(movedVertex1[0], movedVertex1[1]);
+                allVertices[k + 1] = new vec2(movedVertex2[0], movedVertex2[1]);
+                allVertices[k + 2] = new vec2(movedVertex3[0], movedVertex3[1]);
+
+                // Save remove step as a erase operation so we can undo/redo
+
+
+                // Save add step as a draw operation so we can undo/redo
+
+                continue;
+            }
+        }
     }
 }
 
@@ -616,6 +613,14 @@ function handleSelectionMouseUp(event, canvas) {
         }
         // TODO }
     }
+
+    originalSelectedTriangleVertices.splice(0, originalSelectedTriangleVertices.length);
+    for (let j = 0; j < selectedTriangleVertices.length; j++) {
+        originalSelectedTriangleVertices.push(selectedTriangleVertices[j]);
+    }
+
+    console.log("made selection!");
+    console.log(selectedTriangleVertices);
 
     renderSelectedTriangles();
 }
@@ -1150,16 +1155,14 @@ window.onload = function init() {
         isOperating = false;
         isMouseDown = false;
       
-        if (isSelecting && hasCompleteSelection) {
-            handleCompleteSelectionMouseUp(event, canvas);
-        }
-        else if (isSelecting) {
+        if (isSelecting) {
             handleSelectionMouseUp(event, canvas);
         }
         else if (isDrawing || isErasing) {
             currentStroke++;
         }
         else if (isMoveSelectionButtonMode && hasCompleteSelection) {
+            handleSelectionMovementMouseUp(event, canvas);
             resetSelectionData();
         }
     });
@@ -1260,10 +1263,14 @@ function resetSelectionData() {
     updateSelectCoords1 = true;
     selectCoords1 = undefined;
     selectCoords2 = undefined;
-    selectionRectangleVertices.splice(0, selectionRectangleVertices.length);
-    selectedTriangleVertices.splice(0, selectedTriangleVertices.length);
-    selectedTriangleColors.splice(0, selectedTriangleColors.length);
-    selectedTriangleActualColors.splice(0, selectedTriangleActualColors.length);
+    selectionRectangleVertices = [];
+    selectedTriangleVertices = [];
+    newSelectedTrianglesVertices = [];
+    originalSelectedTriangleVertices = [];
+    selectedTriangleColors = [];
+    selectedTriangleActualColors = [];
+    selectedAreaStartTriangle = [];
+    selectedAreaStartCell = [];
 }
 
 function eraseMode(eraserButton) {
@@ -1397,6 +1404,89 @@ function renderSelectedTriangles() {
         borderColors.push(SELECTED_TRIANGLE_COLOR);
         borderColors.push(SELECTED_TRIANGLE_COLOR);
     }
+
+    // Selection Buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, selectionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(borderVertices), gl.STATIC_DRAW);
+
+    // Associate shader variables and draw the selection buffer
+    var vPosition = gl.getAttribLocation(program, "vPosition");
+    gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vPosition);
+
+    // Selection Color Buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, selectionColorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(borderColors), gl.STATIC_DRAW);
+
+    // Associate shader variables and draw the color buffer
+    var vColor = gl.getAttribLocation(program, "vColor");
+    gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vColor);
+
+    gl.drawArrays(gl.LINES, 0, selectedTriangleVertices.length * 2); // Double the number of vertices
+
+    if (selectedTriangleVertices.length > 0) { hasCompleteSelection = true; }
+}
+
+function renderSelectedTrianglesWithBorderAndColor() {
+    render();
+
+    var selectionMovement = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, selectionMovement);
+
+    var selectionMovementColorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, selectionMovementColorBuffer);
+
+    var borderVertices = [];
+    var borderColors = [];
+
+    // For every selected triangle, create relevant border data
+    for (var i = 0; i < selectedTriangleVertices.length; i += 3) {
+        var vertex1 = selectedTriangleVertices[i];
+        var vertex2 = selectedTriangleVertices[i + 1];
+        var vertex3 = selectedTriangleVertices[i + 2];
+
+        // Below contains the vertex data for the lines of the border
+        var lines = [
+            vertex1, vertex2,
+            vertex2, vertex3,
+            vertex3, vertex1
+        ];
+
+        borderVertices.push(lines[0]);
+        borderVertices.push(lines[1]);
+        borderVertices.push(lines[2]);
+        borderVertices.push(lines[3]);
+        borderVertices.push(lines[4]);
+        borderVertices.push(lines[5]);
+
+        borderColors.push(SELECTED_TRIANGLE_COLOR);
+        borderColors.push(SELECTED_TRIANGLE_COLOR);
+        borderColors.push(SELECTED_TRIANGLE_COLOR);
+        borderColors.push(SELECTED_TRIANGLE_COLOR);
+        borderColors.push(SELECTED_TRIANGLE_COLOR);
+        borderColors.push(SELECTED_TRIANGLE_COLOR);
+    }
+
+    // Selection Movement Buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, selectionMovement);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(selectedTriangleVertices), gl.STATIC_DRAW);
+
+    // Associate shader variables and draw the selection buffer
+    var vPosition = gl.getAttribLocation(program, "vPosition");
+    gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vPosition);
+
+    // Selection Movement Color Buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, selectionMovementColorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(selectedTriangleActualColors), gl.STATIC_DRAW);
+  
+    // Associate shader variables and draw the color buffer
+    var vColor = gl.getAttribLocation(program, "vColor");
+    gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vColor);
+
+    gl.drawArrays(gl.TRIANGLES, 0, selectedTriangleVertices.length);
 
     // Selection Buffer
     gl.bindBuffer(gl.ARRAY_BUFFER, selectionBuffer);
