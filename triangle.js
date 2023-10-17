@@ -1791,6 +1791,7 @@ function loadFile(file) {
 
                 // remove old layers
                 layerStack.forEach(layer => removeLayerDiv(layer.id));
+                layerStack.splice(0, layerStack.length);
                 
                 const prevLayerStack = jsonData.layerStack;
 
