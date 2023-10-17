@@ -25,8 +25,8 @@ var isSelecting = false;
 var isMoveSelectionButtonMode = false;
 var hasCompleteSelection = false;
 var isMovingCompleteSelection = false;
-var startSelectionX = 0.0;
-var startSelectionY = 0.0;
+var startSelectionX;
+var startSelectionY;
 var isMouseDown = false;
 var isSliding = false;
 var isMoving = false;
@@ -231,6 +231,86 @@ function handleSelection(event, canvas) {
     updateSelectCoords1 = !updateSelectCoords1;
 }
 
+function handleSelectionMovementSnapping(event, canvas) {
+    if (!isMoveSelectionButtonMode || !hasCompleteSelection || selectedTriangleVertices.length <= 0) {
+        return;
+    }
+
+    // Find the triangle the mouse is on
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    // canvasX -> mouseX, canvasY -> mouseY
+    const canvasX = (x / canvas.width) * 2 - 1;
+    const canvasY = -((y / canvas.height) * 2 - 1);
+
+    // gridX -> clicked x coordinate (in terms of the grid), girdY -> clicked y coordinate (in terms of the grid)
+    const gridX = Math.floor((canvasX + 1) * GRID_SIZE) <= -0 ? 0 : Math.floor((canvasX + 1) * GRID_SIZE);
+    const gridY = Math.floor((canvasY + 1) * GRID_SIZE) <= -0 ? 0 : Math.floor((canvasY + 1) * GRID_SIZE);
+
+    // Clicked cell (4 sub-triangles)
+    const cellClicked = gridCells[gridX][gridY];
+
+    let dtp1 = distanceToPoint(canvasX, canvasY, cellClicked.p1);
+    let dtp2 = distanceToPoint(canvasX, canvasY, cellClicked.p2);
+    let dtp3 = distanceToPoint(canvasX, canvasY, cellClicked.p3);
+    let dtp4 = distanceToPoint(canvasX, canvasY, cellClicked.p4);
+
+    var distancesToAllPts = [
+        [dtp1, 1],
+        [dtp2, 2],
+        [dtp3, 3],
+        [dtp4, 4]
+    ];
+
+    // First 2 elements are now the shortest 2 distances
+    distancesToAllPts.sort((a, b) => a[0] - b[0]);
+
+    let shortestPt;
+    switch (distancesToAllPts[0][1]) {
+        case 1:
+            shortestPt = cellClicked.p1;
+            break;
+        case 2:
+            shortestPt = cellClicked.p2;
+            break;
+        case 3:
+            shortestPt = cellClicked.p3;
+            break;
+        case 4:
+            shortestPt = cellClicked.p4;
+            break;
+        default:
+            break;
+    }
+
+    let secondShortestPt;
+    switch (distancesToAllPts[1][1]) {
+        case 1:
+            secondShortestPt = cellClicked.p1;
+            break;
+        case 2:
+            secondShortestPt = cellClicked.p2;
+            break;
+        case 3:
+            secondShortestPt = cellClicked.p3;
+            break;
+        case 4:
+            secondShortestPt = cellClicked.p4;
+            break;
+        default:
+            break;
+    }
+
+    // Clicked sub-triangle
+    var clickedTriangle = [
+        shortestPt,
+        secondShortestPt,
+        cellClicked.p5
+    ];
+}
+
 function handleSelectionContinous(event, canvas) {
     if (!isSelecting) {
         return;
@@ -289,7 +369,7 @@ function handleSelectionContinous(event, canvas) {
 }
 
 function moveSelectionContinuos(event, canvas) {
-    if (!isSelecting || !hasCompleteSelection) {
+    if (!isMoveSelectionButtonMode || !hasCompleteSelection) {
         return;
     }
 
@@ -307,22 +387,25 @@ function moveSelectionContinuos(event, canvas) {
     if (canvasY < -1) { canvasY = -1; }
     else if (canvasY > 1) { canvasY = 1; }
 
-    console.log("canvasX: " + canvasX + " canvasY: " + canvasY);
+    startSelectionX = startSelectionX == undefined ? canvasX : startSelectionX;
+    startSelectionY = startSelectionY == undefined ? canvasY : startSelectionY;
 
     var changeInX = canvasX - startSelectionX;
     var changeInY = canvasY - startSelectionY;
 
-    console.log("changeInX: " + changeInX + " changeInY: " + changeInY);
-    console.log("startSelectionX: " + startSelectionX + " startSelectionY: " + startSelectionY);
+    var selectedVerticesNewPositions = [];
 
     for (let i = 0; i < selectedTriangleVertices.length; i++) {
-        var curVertex = selectedTriangleVertices[i];
-        console.log(curVertex);
+        selectedVerticesNewPositions.push(new vec2(selectedTriangleVertices[i][0] + changeInX, selectedTriangleVertices[i][1] + changeInY));
     }
+
+    selectedTriangleVertices.splice(0, selectedTriangleVertices.length);
+    selectedTriangleVertices = selectedVerticesNewPositions;
 
     startSelectionX = canvasX;
     startSelectionY = canvasY;
-    console.log("startSelectionX: " + startSelectionX + " startSelectionY: " + startSelectionY);
+
+    renderMovingSelection();
 }
 
 function handleCompleteSelectionMouseUp(event, canvas) {
@@ -967,6 +1050,9 @@ window.onload = function init() {
         else if (isDrawing || isErasing) {
             currentStroke++;
         }
+        else if (isMoveSelectionButtonMode && hasCompleteSelection) {
+            handleSelectionMovementSnapping(event, canvas);
+        }
     });
 
     canvas.addEventListener("mousedown", (event) => {
@@ -981,6 +1067,9 @@ window.onload = function init() {
         }
         else if (isSelecting) {
             handleSelectionContinous(event, canvas);
+        }
+        else if (isMoveSelectionButtonMode) {
+            moveSelectionContinuos(event, canvas);
         }
     });  
 
@@ -999,6 +1088,10 @@ window.onload = function init() {
       
         if (isMoving) {
             moveCanvas(event, canvas);
+        }
+
+        if (isMoveSelectionButtonMode) {
+            moveSelectionContinuos(event, canvas);
         }
     });      
 
@@ -1050,15 +1143,31 @@ window.onload = function init() {
     render();
 };
 
+function resetSelectionData() {
+    hasCompleteSelection = false;
+    isMovingCompleteSelection = false;
+    startSelectionX = undefined;
+    startSelectionY = undefined;
+    updateSelectCoords1 = true;
+    selectCoords1 = undefined;
+    selectCoords2 = undefined;
+    selectionRectangleVertices = [];
+    selectedTriangleVertices = [];
+    selectedTriangleColors = [];
+    selectedTriangleActualColors = [];
+}
+
 function eraseMode(eraserButton) {
     updateButtonBackground(eraserButton);
     resetAllModes();
+    resetSelectionData();
     isErasing = true;
 }
 
 function drawMode(pencilButton) {
     updateButtonBackground(pencilButton);
     resetAllModes();
+    resetSelectionData();
     isDrawing = true;
 }
 
@@ -1071,6 +1180,7 @@ function selectMode(selectionButton) {
 function moveMode(moveButton) {
     updateButtonBackground(moveButton);
     resetAllModes();
+    resetSelectionData();
     isMoving = true;
 }
 
@@ -1085,30 +1195,35 @@ function moveSelectionMode(moveSelectionButton) {
 function cutSelection() {
     updateButtonBackground();
     resetAllModes();
+    // resetSelectionData();
     isDrawing = false;
 }
 
 function copySelection() {
     updateButtonBackground();
     resetAllModes();
+    // resetSelectionData();
     isDrawing = false;
 }
 
 function pasteSelection() {
     updateButtonBackground();
     resetAllModes();
+    // resetSelectionData();
     isDrawing = false;
 }
 
 function openFile() {
     updateButtonBackground();
     resetAllModes();
+    resetSelectionData();
     isDrawing = false;
 }
 
 function saveFile() {
     updateButtonBackground();
     resetAllModes();
+    resetSelectionData();
     isDrawing = false;
 }
 
@@ -1194,7 +1309,7 @@ function renderSelectedTriangles() {
 
     gl.drawArrays(gl.LINES, 0, selectedTriangleVertices.length * 2); // Double the number of vertices
 
-    hasCompleteSelection = true;
+    if (selectedTriangleVertices.length > 0) { hasCompleteSelection = true; }
 }
 
 function renderSelection() {
