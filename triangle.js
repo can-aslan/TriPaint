@@ -461,7 +461,6 @@ function moveSelectionContinuos(event, canvas) {
         selectedAreaStartCell = currentCell;
     }
 
-    // renderMovingSelection();
     renderSelectedTrianglesWithBorderAndColor();
 }
 
@@ -780,15 +779,18 @@ function drawHandler(event, canvas) {
         currentColorVec4.push(currentColor);
 
         strokes[currentStroke].push(new Stroke(clickedTriangle, currentColor, StrokeType.Draw));
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, flatten(allVertices), gl.STATIC_DRAW);
     }
     else if (isErasing) {
+        console.log("allVertices");
+        console.log(allVertices);
+        console.log("allVertices");
+
         for (let i = 0; i < allVertices.length; i = i + 3) {
+            console.log("-----");
             if (isSameTriangle(i, clickedTriangle)) {
                 strokes[currentStroke].push(new Stroke(allVertices.splice(i, 3), currentColorVec4.splice(i, 3)[0], StrokeType.Erase));
             }
+            console.log("-----");
         }
     }
 
@@ -796,24 +798,34 @@ function drawHandler(event, canvas) {
     render();
 }
 
+function comparePointFloationPointWithAccuracy(i, j, accuracy) {
+    return (i[0] == j[0] || Math.abs(i[0] - j[0]) <= accuracy) && (i[1] == j[1] || Math.abs(i[1] - j[1]) <= accuracy);
+}
+
 // Checks if the given clicked triangle exists in the
 // first three (after allVerticesStartingIndex) items in the allVertices array
 function isSameTriangle(allVerticesStartingIndex, clickedTriangle) {
+    const ACCURACY = 0.01;
+
     let clickedShortestExists =
-        allVertices[allVerticesStartingIndex] == clickedTriangle[0]
-        || allVertices[allVerticesStartingIndex + 1] == clickedTriangle[0]
-        || allVertices[allVerticesStartingIndex + 2] == clickedTriangle[0];
+        comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex], clickedTriangle[0], ACCURACY)
+        || comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex + 1], clickedTriangle[0], ACCURACY)
+        || comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex + 2], clickedTriangle[0], ACCURACY);
 
     let clickedSecondShortestExists =
-        allVertices[allVerticesStartingIndex] == clickedTriangle[1]
-        || allVertices[allVerticesStartingIndex + 1] == clickedTriangle[1]
-        || allVertices[allVerticesStartingIndex + 2] == clickedTriangle[1];
+        comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex], clickedTriangle[1], ACCURACY)
+        || comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex + 1], clickedTriangle[1], ACCURACY)
+        || comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex + 2], clickedTriangle[1], ACCURACY);
 
     let clickedCenterExists =
-        allVertices[allVerticesStartingIndex] == clickedTriangle[2]
-        || allVertices[allVerticesStartingIndex + 1] == clickedTriangle[2]
-        || allVertices[allVerticesStartingIndex + 2] == clickedTriangle[2];
+        comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex], clickedTriangle[2], ACCURACY)
+        || comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex + 1], clickedTriangle[2], ACCURACY)
+        || comparePointFloationPointWithAccuracy(allVertices[allVerticesStartingIndex + 2], clickedTriangle[2], ACCURACY);
 
+    console.log(clickedShortestExists);
+    console.log(clickedSecondShortestExists);
+    console.log(clickedCenterExists);
+    console.log(clickedShortestExists && clickedSecondShortestExists && clickedCenterExists);
     return clickedShortestExists && clickedSecondShortestExists && clickedCenterExists;
 }
 
@@ -1081,8 +1093,6 @@ window.onload = function init() {
     
     var pasteButton = document.getElementById("pastebutton");
     pasteButton.addEventListener("click", pasteSelection); 
-
- 
 
     addFirstLayer();
 
@@ -1770,6 +1780,93 @@ function renderSelection() {
     gl.enableVertexAttribArray(vColor);
 
     gl.drawArrays(gl.LINE_LOOP, 0, 4);
+}
+
+function renderWithoutSelectionInAllVertices() {
+    if (!isMovingCompleteSelection) { hasCompleteSelection = false; }
+
+    var visitedVertex = [];
+    var visitedBefore = false;
+
+    var verticesToRender = [];
+    var colorsToRender = [];
+
+    // Move all in the original to the locations in the selectedTriangleVertices
+    for (let i = 0; i < originalSelectedTriangleVertices.length; i = i + 3) {
+        var originalVertex1 = originalSelectedTriangleVertices[i];
+        var originalVertex2 = originalSelectedTriangleVertices[i + 1];
+        var originalVertex3 = originalSelectedTriangleVertices[i + 2];
+
+        for (let j = 0; j < visitedVertex.length; j++) {
+            if (
+                visitedVertex[j][0] == originalVertex1[0] && visitedVertex[j][1] == originalVertex1[1]
+                && visitedVertex[j + 1][0] == originalVertex2[0] && visitedVertex[j + 1][1] == originalVertex2[1]
+                && visitedVertex[j + 2][0] == originalVertex3[0] && visitedVertex[j + 2][1] == originalVertex3[1]
+            ) {
+                // If we are here, vertex is visited before
+                visitedBefore = true;
+                break;
+            }
+        }
+
+        if (visitedBefore) {
+            visitedBefore = false;
+            continue;
+        }
+        
+        visitedVertex.push(originalVertex1);
+        visitedVertex.push(originalVertex2);
+        visitedVertex.push(originalVertex3);
+
+        // Add all "non-selected" triangles back to rendering data
+        for (let k = 0; k < allVertices.length; k = k + 3) {
+            var curV1 = allVertices[k];
+            var curV2 = allVertices[k + 1];
+            var curV3 = allVertices[k + 2];
+
+            if (
+                curV1[0] == originalVertex1[0] && curV1[1] == originalVertex1[1]
+                && curV2[0] == originalVertex2[0] && curV2[1] == originalVertex2[1]
+                && curV3[0] == originalVertex3[0] && curV3[1] == originalVertex3[1]
+            ) {
+                console.log("this triangle is selected!");
+                continue;
+            }
+
+            verticesToRender.push(allVertices[k]);
+            verticesToRender.push(allVertices[k + 1]);
+            verticesToRender.push(allVertices[k + 2]);
+
+            colorsToRender.push(currentColorVec4[k]);
+            colorsToRender.push(currentColorVec4[k + 1]);
+            colorsToRender.push(currentColorVec4[k + 2]);
+        }
+    }
+
+    gl.clear(gl.COLOR_BUFFER_BIT); 
+
+    const viewMatrixLocation = gl.getUniformLocation(program, "viewMatrix");
+    gl.uniformMatrix4fv(viewMatrixLocation, false, flatten(viewMatrix));
+
+    // Vertex Buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(verticesToRender), gl.STATIC_DRAW); 
+
+    // Associate shader variables and draw the vertex buffer
+    var vPosition = gl.getAttribLocation(program, "vPosition");
+    gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vPosition);
+
+    // Color Buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, theColorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(colorsToRender), gl.STATIC_DRAW);
+    
+    // Associate shader variables and draw the color buffer
+    var vColor = gl.getAttribLocation(program, "vColor");
+    gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vColor);
+
+    gl.drawArrays(gl.TRIANGLES, 0, allVertices.length);
 }
 
 function render() {
