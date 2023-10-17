@@ -1,5 +1,6 @@
 const GRID_SIZE = 15;
 const RGB_COLOR_RANGE = 255.0;
+const UNDO_MAX_OPS = 50;
 const CLICKED_ICON_BACKGROUND = "#626366";
 const ICON_BACKGROUND = "transparent";
 const SELECTION_COLOR_BUFFER_DATA = [vec4(0.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.0, 1.0)];
@@ -966,8 +967,11 @@ function undoLastStroke() {
   
     if (currentStroke <= 0) { return; }
     
-    console.log(strokes);
-    console.log(currentStroke);
+    if (strokes.length >= UNDO_MAX_OPS) {
+        strokes.splice(0, 1);
+        currentStroke--;
+    }
+    
     var undoneStroke = strokes.splice(currentStroke - 1, 1);
     undoneStrokes.push(undoneStroke[0]);
 
@@ -1007,6 +1011,11 @@ function redoLastUndoneStroke() {
     updateButtonBackground();
     
     if (undoneStrokes.length < 1) { return; }
+
+    if (strokes.length >= UNDO_MAX_OPS) {
+        strokes.splice(0, 1);
+        currentStroke--;
+    }
 
     var redoneStroke = undoneStrokes.splice(undoneStrokes.length - 1, 1);
 
