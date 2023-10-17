@@ -664,7 +664,7 @@ function handleCopyMovementMouseUp(event, canvas) {
 
         lastOpWasUndoOrRedo = false;
     }
-    
+
     currentStroke++;
     render();
 }
@@ -1209,16 +1209,10 @@ window.onload = function init() {
     var saveButton = document.getElementById("savebutton");
     saveButton.addEventListener("click", saveFile);
     
-    var cutButton = document.getElementById("cutbutton");
-    cutButton.addEventListener("click", cutSelection);
-    
     var copyButton = document.getElementById("copybutton");
     copyButton.addEventListener("click", function() {
         copySelection(copyButton);
     });
-    
-    var pasteButton = document.getElementById("pastebutton");
-    pasteButton.addEventListener("click", pasteSelection); 
 
     addFirstLayer();
 
@@ -1497,25 +1491,13 @@ function moveSelectionMode(moveSelectionButton) {
     renderSelectedTriangles();
 }
 
-function cutSelection() {
-    updateButtonBackground();
-    resetAllModes();
-    // resetSelectionData();
-}
-
-function copySelection() {
-    updateButtonBackground();
+function copySelection(copyButton) {
+    updateButtonBackground(copyButton);
     resetAllModes();
     // resetSelectionData();
 
     isCopying = true;
     renderSelectedTriangles();
-}
-
-function pasteSelection() {
-    updateButtonBackground();
-    resetAllModes();
-    // resetSelectionData();
 }
 
 function openFile() {
