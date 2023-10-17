@@ -440,7 +440,7 @@ function moveSelectionContinuos(event, canvas) {
 
     var currentCell = getClickedCell(event, canvas);
 
-    // If we are here, we have changed cells
+    // If we are here, we have to change cells
     if (!selectedAreaStartCell.isSameAs(currentCell)) {
         newSelectedTrianglesVertices.splice(0, newSelectedTrianglesVertices.length);
 
@@ -465,8 +465,11 @@ function moveSelectionContinuos(event, canvas) {
 
 function handleSelectionMovementMouseUp(event, canvas) {
     if (!isMoveSelectionButtonMode || !hasCompleteSelection) {
+        console.log("test");
         return;
     }
+
+    console.log("test!!!");
 
     var visitedVertex = [];
     var visitedBefore = false;
@@ -489,6 +492,9 @@ function handleSelectionMovementMouseUp(event, canvas) {
         undoneStrokes.splice(0, undoneStrokes.length);
     }
 
+    const allVerticesActive = allVertices[activeLayerId]; 
+    const currentColorVec4Active = currentColorVec4[activeLayerId]; 
+
     // Move all in the original to the locations in the selectedTriangleVertices
     for (let i = 0; i < originalSelectedTriangleVertices.length; i = i + 3) {
         var originalVertex1 = originalSelectedTriangleVertices[i];
@@ -520,10 +526,10 @@ function handleSelectionMovementMouseUp(event, canvas) {
         visitedVertex.push(originalVertex2);
         visitedVertex.push(originalVertex3);
 
-        for (let k = 0; k < allVertices.length; k = k + 3) {
-            var curV1 = allVertices[k];
-            var curV2 = allVertices[k + 1];
-            var curV3 = allVertices[k + 2];
+        for (let k = 0; k < allVerticesActive.length; k = k + 3) {
+            var curV1 = allVerticesActive[k];
+            var curV2 = allVerticesActive[k + 1];
+            var curV3 = allVerticesActive[k + 2];
 
             if (
                 curV1[0] == originalVertex1[0] && curV1[1] == originalVertex1[1]
@@ -532,25 +538,25 @@ function handleSelectionMovementMouseUp(event, canvas) {
             ) {
                 // Save remove step as a erase operation so we can undo/redo
                 var triV = [
-                    allVertices[k],
-                    allVertices[k + 1],
-                    allVertices[k + 2]
+                    allVerticesActive[k],
+                    allVerticesActive[k + 1],
+                    allVerticesActive[k + 2]
                 ];
 
                 var triC = [
-                    currentColorVec4[k],
-                    currentColorVec4[k + 1],
-                    currentColorVec4[k + 2]
+                    currentColorVec4Active[k],
+                    currentColorVec4Active[k + 1],
+                    currentColorVec4Active[k + 2]
                 ];
 
                 strokes[currentStroke - 1].push(new Stroke(triV, triC[0], StrokeType.Erase));
             }
         }
 
-        for (let k = 0; k < allVertices.length; k = k + 3) {
-            var curV1 = allVertices[k];
-            var curV2 = allVertices[k + 1];
-            var curV3 = allVertices[k + 2];
+        for (let k = 0; k < allVerticesActive.length; k = k + 3) {
+            var curV1 = allVerticesActive[k];
+            var curV2 = allVerticesActive[k + 1];
+            var curV3 = allVerticesActive[k + 2];
 
             if (
                 curV1[0] == originalVertex1[0] && curV1[1] == originalVertex1[1]
@@ -558,18 +564,18 @@ function handleSelectionMovementMouseUp(event, canvas) {
                 && curV3[0] == originalVertex3[0] && curV3[1] == originalVertex3[1]
             ) {
                 // If we are here, this vertex needs to be moved to the correct position
-                allVertices[k] = new vec2(movedVertex1[0], movedVertex1[1]);
-                allVertices[k + 1] = new vec2(movedVertex2[0], movedVertex2[1]);
-                allVertices[k + 2] = new vec2(movedVertex3[0], movedVertex3[1]);
+                allVerticesActive[k] = new vec2(movedVertex1[0], movedVertex1[1]);
+                allVerticesActive[k + 1] = new vec2(movedVertex2[0], movedVertex2[1]);
+                allVerticesActive[k + 2] = new vec2(movedVertex3[0], movedVertex3[1]);
 
                 // Save add step as a draw operation so we can undo/redo
                 var newTri = [
-                    allVertices[k],
-                    allVertices[k + 1],
-                    allVertices[k + 2]
+                    allVerticesActive[k],
+                    allVerticesActive[k + 1],
+                    allVerticesActive[k + 2]
                 ]
 
-                strokes[currentStroke].push(new Stroke(newTri, currentColorVec4[k], StrokeType.Draw));
+                strokes[currentStroke].push(new Stroke(newTri, currentColorVec4Active[k], StrokeType.Draw));
 
                 lastOpWasUndoOrRedo = false;
                 
@@ -590,7 +596,10 @@ function handleCopyMovementMouseUp(event, canvas) {
 
     var visitedVertex = [];
     var visitedBefore = false;
-                
+
+    const allVerticesActive = allVertices[activeLayerId]; 
+    const currentColorVec4Active = currentColorVec4[activeLayerId]; 
+
     if (strokes[currentStroke] === undefined) {
         strokes[currentStroke] = [];
     }
@@ -630,10 +639,10 @@ function handleCopyMovementMouseUp(event, canvas) {
         visitedVertex.push(originalVertex2);
         visitedVertex.push(originalVertex3);
 
-        for (let k = 0; k < allVertices.length; k = k + 3) {
-            var curV1 = allVertices[k];
-            var curV2 = allVertices[k + 1];
-            var curV3 = allVertices[k + 2];
+        for (let k = 0; k < allVerticesActive.length; k = k + 3) {
+            var curV1 = allVerticesActive[k];
+            var curV2 = allVerticesActive[k + 1];
+            var curV3 = allVerticesActive[k + 2];
 
             if (
                 curV1[0] == originalVertex1[0] && curV1[1] == originalVertex1[1]
@@ -641,13 +650,13 @@ function handleCopyMovementMouseUp(event, canvas) {
                 && curV3[0] == originalVertex3[0] && curV3[1] == originalVertex3[1]
             ) {
                 // If we are here, this vertex needs to be moved to the correct position
-                allVertices.push(new vec2(movedVertex1[0], movedVertex1[1]));
-                allVertices.push(new vec2(movedVertex2[0], movedVertex2[1]));
-                allVertices.push(new vec2(movedVertex3[0], movedVertex3[1]));
+                allVerticesActive.push(new vec2(movedVertex1[0], movedVertex1[1]));
+                allVerticesActive.push(new vec2(movedVertex2[0], movedVertex2[1]));
+                allVerticesActive.push(new vec2(movedVertex3[0], movedVertex3[1]));
 
-                currentColorVec4.push(currentColorVec4[k]);
-                currentColorVec4.push(currentColorVec4[k]);
-                currentColorVec4.push(currentColorVec4[k]);
+                currentColorVec4Active.push(currentColorVec4Active[k]);
+                currentColorVec4Active.push(currentColorVec4Active[k]);
+                currentColorVec4Active.push(currentColorVec4Active[k]);
 
                 // Save add step as a draw operation so we can undo/redo
                 var newTri = [
@@ -656,7 +665,7 @@ function handleCopyMovementMouseUp(event, canvas) {
                     new vec2(movedVertex3[0], movedVertex3[1])
                 ]
 
-                strokes[currentStroke].push(new Stroke(newTri, currentColorVec4[k], StrokeType.Draw));
+                strokes[currentStroke].push(new Stroke(newTri, currentColorVec4Active[k], StrokeType.Draw));
 
                 lastOpWasUndoOrRedo = false;
                 
@@ -708,6 +717,9 @@ function handleSelectionMouseUp(event, canvas) {
     if (!isSelecting || !updateSelectCoords1) {
         return;
     }
+    
+    const allVerticesActive = allVertices[activeLayerId]; 
+    const currentColorVec4Active = currentColorVec4[activeLayerId]; 
 
     // Reset selectedTriangleVertices, selectedTriangleColors and selectedTriangleActualColors (splice way is more performant)
     selectedTriangleVertices.splice(0, selectedTriangleVertices.length);
@@ -716,53 +728,53 @@ function handleSelectionMouseUp(event, canvas) {
 
     // We are here if there is a complete selection
     // Traverse all triangles
-    for (let i = 0; i < allVertices.length; i = i + 3) {
+    for (let i = 0; i < allVerticesActive.length; i = i + 3) {
         // Check if any vertex of the triangle is inside the selected area
-        var curTriangle = [allVertices[i], allVertices[i + 1], allVertices[i + 2]];
-        
+
+        var curTriangle = [allVerticesActive[i], allVerticesActive[i + 1], allVerticesActive[i + 2]];
+
         if (isTriangleInsideSelection(curTriangle)) {
             // If we are here, then the current triangle is inside the selection area
-            selectedTriangleVertices.push(allVertices[i]);
-            selectedTriangleVertices.push(allVertices[i + 1]);
-            selectedTriangleVertices.push(allVertices[i + 2]);
+            selectedTriangleVertices.push(allVerticesActive[i]);
+            selectedTriangleVertices.push(allVerticesActive[i + 1]);
+            selectedTriangleVertices.push(allVerticesActive[i + 2]);
 
             selectedTriangleColors.push(SELECTED_TRIANGLE_COLOR);
             selectedTriangleColors.push(SELECTED_TRIANGLE_COLOR);
             selectedTriangleColors.push(SELECTED_TRIANGLE_COLOR);
 
-            selectedTriangleActualColors.push(currentColorVec4[i]);
-            selectedTriangleActualColors.push(currentColorVec4[i + 1]);
-            selectedTriangleActualColors.push(currentColorVec4[i + 2]);
+            selectedTriangleActualColors.push(currentColorVec4Active[i]);
+            selectedTriangleActualColors.push(currentColorVec4Active[i + 1]);
+            selectedTriangleActualColors.push(currentColorVec4Active[i + 2]);
         }
     }
 
     if (selectedTriangleVertices.length == 0 || selectedTriangleColors.length == 0 || selectedTriangleActualColors.length == 0) {
+        console.log("y");
         // If no selection has been detected, check if the cursor is inside a triangle
         var corner1 = selectionRectangleVertices[0];
         var corner2 = selectionRectangleVertices[2];
 
-        // TODO For every point in the selection rectangle
-        // TODO for (let curPt = corner1; curPt) {
-        // For every triangle
-        for (let i = 0; i < allVertices.length; i = i + 3) {
-            var curTriangle = [allVertices[i], allVertices[i + 1], allVertices[i + 2]];
+        // For every triangleconst
+
+        for (let i = 0; i < allVerticesActive.length; i = i + 3) {
+            var curTriangle = [allVerticesActive[i], allVerticesActive[i + 1], allVerticesActive[i + 2]];
 
             // Check for intersection between the selection area and the current triangle
             if (pointInTriangle(corner1, curTriangle) || pointInTriangle(corner2, curTriangle)) {
-                selectedTriangleVertices.push(allVertices[i]);
-                selectedTriangleVertices.push(allVertices[i + 1]);
-                selectedTriangleVertices.push(allVertices[i + 2]);
+                selectedTriangleVertices.push(allVerticesActive[i]);
+                selectedTriangleVertices.push(allVerticesActive[i + 1]);
+                selectedTriangleVertices.push(allVerticesActive[i + 2]);
 
                 selectedTriangleColors.push(SELECTED_TRIANGLE_COLOR);
                 selectedTriangleColors.push(SELECTED_TRIANGLE_COLOR);
                 selectedTriangleColors.push(SELECTED_TRIANGLE_COLOR);
 
-                selectedTriangleActualColors.push(currentColorVec4[i]);
-                selectedTriangleActualColors.push(currentColorVec4[i + 1]);
-                selectedTriangleActualColors.push(currentColorVec4[i + 2]);
+                selectedTriangleActualColors.push(currentColorVec4Active[i]);
+                selectedTriangleActualColors.push(currentColorVec4Active[i + 1]);
+                selectedTriangleActualColors.push(currentColorVec4Active[i + 2]);
             }
         }
-        // TODO }
     }
 
     originalSelectedTriangleVertices.splice(0, originalSelectedTriangleVertices.length);
@@ -907,9 +919,9 @@ function drawHandler(event, canvas) {
         const allVerticesActive = allVertices[activeLayerId]; 
         const currentColorVec4Active = currentColorVec4[activeLayerId]; 
 
-        console.log("all ver:", allVertices)
+        // console.log("all ver:", allVertices)
         // console.log("color ver:", currentColorVec4.keys)
-        console.log("active lay:", activeLayer)
+        // console.log("active lay:", activeLayer)
 
         // for (const key in allVertices) {
         //     if (allVertices.hasOwnProperty(key)) {
@@ -1247,8 +1259,6 @@ window.onload = function init() {
         copySelection(copyButton);
     });
 
-    addFirstLayer();
-
     var plusLayerButton = document.getElementById("plusbtn");
     plusLayerButton.addEventListener("click", addLayer);
 
@@ -1306,7 +1316,6 @@ window.onload = function init() {
             || (btn == copyButton && isCopying)
             || (btn == moveSelectionButton && isMoveSelectionButtonMode))
         ) {
-
             btn.style.backgroundColor = ICON_BACKGROUND;        
         }        
     })});
@@ -1370,16 +1379,20 @@ window.onload = function init() {
         isMouseDown = false;
       
         if (isSelecting) {
+            console.log("a");
             handleSelectionMouseUp(event, canvas);
         }
         else if (isDrawing || isErasing) {
+            console.log("b");
             currentStroke++;
         }
         else if (isMoveSelectionButtonMode && hasCompleteSelection) {
+            console.log("c");
             handleSelectionMovementMouseUp(event, canvas);
             resetSelectionData();
         }
         else if (isCopying && hasCompleteSelection) {
+            console.log("d");
             handleCopyMovementMouseUp(event, canvas);
             resetSelectionData();
         }
@@ -2058,6 +2071,9 @@ function renderWithoutSelectionInAllVertices() {
     var verticesToRender = [];
     var colorsToRender = [];
 
+    const allVerticesActive = allVertices[activeLayerId]; 
+    const currentColorVec4Active = currentColorVec4[activeLayerId];
+
     // Move all in the original to the locations in the selectedTriangleVertices
     for (let i = 0; i < originalSelectedTriangleVertices.length; i = i + 3) {
         var originalVertex1 = originalSelectedTriangleVertices[i];
@@ -2086,10 +2102,10 @@ function renderWithoutSelectionInAllVertices() {
         visitedVertex.push(originalVertex3);
 
         // Add all "non-selected" triangles back to rendering data
-        for (let k = 0; k < allVertices.length; k = k + 3) {
-            var curV1 = allVertices[k];
-            var curV2 = allVertices[k + 1];
-            var curV3 = allVertices[k + 2];
+        for (let k = 0; k < allVerticesActive.length; k = k + 3) {
+            var curV1 = allVerticesActive[k];
+            var curV2 = allVerticesActive[k + 1];
+            var curV3 = allVerticesActive[k + 2];
 
             if (
                 curV1[0] == originalVertex1[0] && curV1[1] == originalVertex1[1]
@@ -2100,13 +2116,13 @@ function renderWithoutSelectionInAllVertices() {
                 continue;
             }
 
-            verticesToRender.push(allVertices[k]);
-            verticesToRender.push(allVertices[k + 1]);
-            verticesToRender.push(allVertices[k + 2]);
+            verticesToRender.push(allVerticesActive[k]);
+            verticesToRender.push(allVerticesActive[k + 1]);
+            verticesToRender.push(allVerticesActive[k + 2]);
 
-            colorsToRender.push(currentColorVec4[k]);
-            colorsToRender.push(currentColorVec4[k + 1]);
-            colorsToRender.push(currentColorVec4[k + 2]);
+            colorsToRender.push(currentColorVec4Active[k]);
+            colorsToRender.push(currentColorVec4Active[k + 1]);
+            colorsToRender.push(currentColorVec4Active[k + 2]);
         }
     }
 
@@ -2133,7 +2149,7 @@ function renderWithoutSelectionInAllVertices() {
     gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(vColor);
 
-    gl.drawArrays(gl.TRIANGLES, 0, allVertices.length);
+    gl.drawArrays(gl.TRIANGLES, 0, allVerticesActive.length);
 }
 
 function render() {
@@ -2144,8 +2160,6 @@ function render() {
     gl.clear(gl.COLOR_BUFFER_BIT); 
 
     for (let i = layerStack.length - 1; i >= 0; i--) {
-        console.log("cur layer:", layerStack[i])
-
         let verticeNumberToRender = allVertices[layerStack[i].id].length;
         // If layer is not visible do not render it
         if (!layerStack[i].isVisible) {
