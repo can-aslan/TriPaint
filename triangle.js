@@ -69,6 +69,8 @@ var selectionRectangleVertices = [];
 var selectedTriangleVertices = [];
 var selectedTriangleColors = [];
 var selectedTriangleActualColors = [];
+var selectedAreaStartTriangle = [];
+var selectedAreaStartCell = [];
 var editButtonsToBeUpdated = [];
 
 const StrokeType = {
@@ -113,6 +115,21 @@ class Cell {
             (p1.x + p2.x + p3.x + p4.x) / 4,
             (p1.y + p2.y + p3.y + p4.y) / 4
         ));
+    }
+
+    isSameAs(otherCell) {
+        return (
+            this.p1[0] === otherCell.p1[0] &&
+            this.p1[1] === otherCell.p1[1] &&
+            this.p2[0] === otherCell.p2[0] &&
+            this.p2[1] === otherCell.p2[1] &&
+            this.p3[0] === otherCell.p3[0] &&
+            this.p3[1] === otherCell.p3[1] &&
+            this.p4[0] === otherCell.p4[0] &&
+            this.p4[1] === otherCell.p4[1] &&
+            this.p5[0] === otherCell.p5[0] &&
+            this.p5[1] === otherCell.p5[1]
+        );
     }
 }
 
@@ -231,11 +248,82 @@ function handleSelection(event, canvas) {
     updateSelectCoords1 = !updateSelectCoords1;
 }
 
-function handleSelectionMovementSnapping(event, canvas) {
-    if (!isMoveSelectionButtonMode || !hasCompleteSelection || selectedTriangleVertices.length <= 0) {
+function handleSelectionContinous(event, canvas) {
+    if (!isSelecting) {
         return;
     }
+    else if (!updateSelectCoords1) {
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
 
+        // canvasX -> mouseX, canvasY -> mouseY
+        var canvasX = (x / canvas.width) * 2 - 1;
+        var canvasY = -((y / canvas.height) * 2 - 1);
+
+        if (canvasX < -1) { canvasX = -1; }
+        else if (canvasX > 1) { canvasX = 1; }
+
+        if (canvasY < -1) { canvasY = -1; }
+        else if (canvasY > 1) { canvasY = 1; }
+
+        selectCoords1 = vec2(canvasX, canvasY);
+
+        updateSelectCoords1 = !updateSelectCoords1;
+    }
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    // canvasX -> mouseX, canvasY -> mouseY
+    var canvasX = (x / canvas.width) * 2 - 1;
+    var canvasY = -((y / canvas.height) * 2 - 1);
+
+    if (canvasX < -1) { canvasX = -1; }
+    else if (canvasX > 1) { canvasX = 1; }
+
+    if (canvasY < -1) { canvasY = -1; }
+    else if (canvasY > 1) { canvasY = 1; }
+
+    selectCoords2 = vec2(canvasX, canvasY);
+
+    // Calculate the other two coordinates
+    if (selectCoords1 == undefined) {
+        selectCoords1 = selectCoords2;
+    }
+
+    var coord3 = vec2(selectCoords1[0], selectCoords2[1]);
+    var coord4 = vec2(selectCoords2[0], selectCoords1[1]);
+
+    selectionRectangleVertices = [];
+    selectionRectangleVertices.push(selectCoords1);
+    selectionRectangleVertices.push(coord3);
+    selectionRectangleVertices.push(selectCoords2);
+    selectionRectangleVertices.push(coord4);
+
+    renderSelection();
+}
+
+function getClickedCell(event, canvas) {
+    // Find the triangle the mouse is on
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    // canvasX -> mouseX, canvasY -> mouseY
+    const canvasX = (x / canvas.width) * 2 - 1;
+    const canvasY = -((y / canvas.height) * 2 - 1);
+
+    // gridX -> clicked x coordinate (in terms of the grid), girdY -> clicked y coordinate (in terms of the grid)
+    const gridX = Math.floor((canvasX + 1) * GRID_SIZE) <= -0 ? 0 : Math.floor((canvasX + 1) * GRID_SIZE);
+    const gridY = Math.floor((canvasY + 1) * GRID_SIZE) <= -0 ? 0 : Math.floor((canvasY + 1) * GRID_SIZE);
+
+    // Clicked cell (4 sub-triangles)
+    return gridCells[gridX][gridY];
+}
+
+function getClickedSubTriangle(event, canvas) {
     // Find the triangle the mouse is on
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
@@ -304,68 +392,11 @@ function handleSelectionMovementSnapping(event, canvas) {
     }
 
     // Clicked sub-triangle
-    var clickedTriangle = [
+    return [
         shortestPt,
         secondShortestPt,
         cellClicked.p5
     ];
-}
-
-function handleSelectionContinous(event, canvas) {
-    if (!isSelecting) {
-        return;
-    }
-    else if (!updateSelectCoords1) {
-        const rect = canvas.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-
-        // canvasX -> mouseX, canvasY -> mouseY
-        var canvasX = (x / canvas.width) * 2 - 1;
-        var canvasY = -((y / canvas.height) * 2 - 1);
-
-        if (canvasX < -1) { canvasX = -1; }
-        else if (canvasX > 1) { canvasX = 1; }
-
-        if (canvasY < -1) { canvasY = -1; }
-        else if (canvasY > 1) { canvasY = 1; }
-
-        selectCoords1 = vec2(canvasX, canvasY);
-
-        updateSelectCoords1 = !updateSelectCoords1;
-    }
-    
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-
-    // canvasX -> mouseX, canvasY -> mouseY
-    var canvasX = (x / canvas.width) * 2 - 1;
-    var canvasY = -((y / canvas.height) * 2 - 1);
-
-    if (canvasX < -1) { canvasX = -1; }
-    else if (canvasX > 1) { canvasX = 1; }
-
-    if (canvasY < -1) { canvasY = -1; }
-    else if (canvasY > 1) { canvasY = 1; }
-
-    selectCoords2 = vec2(canvasX, canvasY);
-
-    // Calculate the other two coordinates
-    if (selectCoords1 == undefined) {
-        selectCoords1 = selectCoords2;
-    }
-
-    var coord3 = vec2(selectCoords1[0], selectCoords2[1]);
-    var coord4 = vec2(selectCoords2[0], selectCoords1[1]);
-
-    selectionRectangleVertices = [];
-    selectionRectangleVertices.push(selectCoords1);
-    selectionRectangleVertices.push(coord3);
-    selectionRectangleVertices.push(selectCoords2);
-    selectionRectangleVertices.push(coord4);
-
-    renderSelection();
 }
 
 function moveSelectionContinuos(event, canvas) {
@@ -373,37 +404,115 @@ function moveSelectionContinuos(event, canvas) {
         return;
     }
 
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-
-    // canvasX -> mouseX, canvasY -> mouseY
-    var canvasX = (x / canvas.width) * 2 - 1;
-    var canvasY = -((y / canvas.height) * 2 - 1);
-
-    if (canvasX < -1) { canvasX = -1; }
-    else if (canvasX > 1) { canvasX = 1; }
-
-    if (canvasY < -1) { canvasY = -1; }
-    else if (canvasY > 1) { canvasY = 1; }
-
-    startSelectionX = startSelectionX == undefined ? canvasX : startSelectionX;
-    startSelectionY = startSelectionY == undefined ? canvasY : startSelectionY;
-
-    var changeInX = canvasX - startSelectionX;
-    var changeInY = canvasY - startSelectionY;
-
-    var selectedVerticesNewPositions = [];
-
-    for (let i = 0; i < selectedTriangleVertices.length; i++) {
-        selectedVerticesNewPositions.push(new vec2(selectedTriangleVertices[i][0] + changeInX, selectedTriangleVertices[i][1] + changeInY));
+    // Find the triangle the mouse is on
+    if (!isMoveSelectionButtonMode || !hasCompleteSelection || selectedTriangleVertices.length <= 0) {
+        return;
     }
 
-    selectedTriangleVertices.splice(0, selectedTriangleVertices.length);
-    selectedTriangleVertices = selectedVerticesNewPositions;
+    if (selectedAreaStartTriangle.length <= 0 || selectedAreaStartCell.length <= 0) {
+        // selectedAreaStartTriangle is the starting triangle (that the mouse is on)
+        selectedAreaStartTriangle = getClickedSubTriangle(event, canvas); // <- DO NOT REMOVE!
+        selectedAreaStartCell = getClickedCell(event, canvas);
+    }
 
-    startSelectionX = canvasX;
-    startSelectionY = canvasY;
+    var xChange = 0.0;
+    var yChange = 0.0;
+
+    var currentCell = getClickedCell(event, canvas);
+
+    // If we are here, we have changed cells
+    if (!selectedAreaStartCell.isSameAs(currentCell)) {
+        // Calculate x and y changes
+        xChange = currentCell.p1[0] - selectedAreaStartCell.p1[0];
+        yChange = currentCell.p1[1] - selectedAreaStartCell.p1[1];
+
+        // Update all previous triangles in the selection array (erase all of them)
+        if (strokes[currentStroke] === undefined) {
+            strokes[currentStroke] = [];
+        }
+    
+        if (lastOpWasUndoOrRedo) { // If drawing right after undo, remove previous undone ops
+            undoneStrokes.splice(0, undoneStrokes.length);
+        }
+
+        for (let selTriStartInd = 0; selTriStartInd < selectedTriangleVertices.length; selTriStartInd = selTriStartInd + 3) {
+            var curSelectedTriangle = [
+                selectedTriangleVertices[selTriStartInd],
+                selectedTriangleVertices[selTriStartInd + 1],
+                selectedTriangleVertices[selTriStartInd + 2]
+            ];
+            
+            console.log("delete");
+            console.log(curSelectedTriangle);
+            console.log("delete");
+
+            for (let i = 0; i < allVertices.length; i = i + 3) {
+                if (isSameTriangle(i, curSelectedTriangle)) {
+                    strokes[currentStroke].push(new Stroke(allVertices.splice(i, 3), currentColorVec4.splice(i, 3)[0], StrokeType.Erase));
+                }
+            }
+        }
+
+        currentStroke++;
+
+        // Add all triangles in the selection array to their new places
+        if (strokes[currentStroke] === undefined) {
+            strokes[currentStroke] = [];
+        }
+    
+        if (lastOpWasUndoOrRedo) { // If drawing right after undo, remove previous undone ops
+            undoneStrokes.splice(0, undoneStrokes.length);
+        }
+
+        var visitedTriangles = [];
+        var continueModification = true;
+
+        for (let selTriStartInd = 0; selTriStartInd < selectedTriangleVertices.length; selTriStartInd = selTriStartInd + 3) {
+            var curSelectedTriangle = [
+                selectedTriangleVertices[selTriStartInd],
+                selectedTriangleVertices[selTriStartInd + 1],
+                selectedTriangleVertices[selTriStartInd + 2]
+            ];
+
+            // Check if the triangle has been visited before
+            console.log("add");
+            console.log(curSelectedTriangle);
+            console.log("add");
+
+            // visitedTriangles.push(curSelectedTriangle);
+
+            curSelectedTriangle[0][0] = curSelectedTriangle[0][0] + xChange;
+            curSelectedTriangle[1][0] = curSelectedTriangle[1][0] + xChange;
+            curSelectedTriangle[2][0] = curSelectedTriangle[2][0] + xChange;
+
+            curSelectedTriangle[0][1] = curSelectedTriangle[0][1] + yChange;
+            curSelectedTriangle[1][1] = curSelectedTriangle[1][1] + yChange;
+            curSelectedTriangle[2][1] = curSelectedTriangle[2][1] + yChange;
+
+            console.log("add after");
+            console.log(curSelectedTriangle);
+            console.log("add after");
+
+            allVertices.push(curSelectedTriangle[0]);
+            allVertices.push(curSelectedTriangle[1]);
+            allVertices.push(curSelectedTriangle[2]);
+
+            currentColorVec4.push(selectedTriangleActualColors[selTriStartInd]);
+            currentColorVec4.push(selectedTriangleActualColors[selTriStartInd + 1]);
+            currentColorVec4.push(selectedTriangleActualColors[selTriStartInd + 2]);
+
+            strokes[currentStroke].push(new Stroke(curSelectedTriangle, currentColor, StrokeType.Draw));
+
+            // gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
+            // gl.bufferData(gl.ARRAY_BUFFER, flatten(allVertices), gl.STATIC_DRAW);
+        }
+
+        currentStroke++;
+        lastOpWasUndoOrRedo = false;
+
+        // Update new move start
+        selectedAreaStartCell = currentCell;
+    }
 
     renderMovingSelection();
 }
@@ -452,7 +561,7 @@ function handleSelectionMouseUp(event, canvas) {
         return;
     }
 
-    // Reset both selectedTriangleVertices, selectedTriangleColors and selectedTriangleActualColors (splice way is more performant)
+    // Reset selectedTriangleVertices, selectedTriangleColors and selectedTriangleActualColors (splice way is more performant)
     selectedTriangleVertices.splice(0, selectedTriangleVertices.length);
     selectedTriangleColors.splice(0, selectedTriangleColors.length);
     selectedTriangleActualColors.splice(0, selectedTriangleActualColors.length);
@@ -1051,7 +1160,7 @@ window.onload = function init() {
             currentStroke++;
         }
         else if (isMoveSelectionButtonMode && hasCompleteSelection) {
-            handleSelectionMovementSnapping(event, canvas);
+            resetSelectionData();
         }
     });
 
@@ -1151,10 +1260,10 @@ function resetSelectionData() {
     updateSelectCoords1 = true;
     selectCoords1 = undefined;
     selectCoords2 = undefined;
-    selectionRectangleVertices = [];
-    selectedTriangleVertices = [];
-    selectedTriangleColors = [];
-    selectedTriangleActualColors = [];
+    selectionRectangleVertices.splice(0, selectionRectangleVertices.length);
+    selectedTriangleVertices.splice(0, selectedTriangleVertices.length);
+    selectedTriangleColors.splice(0, selectedTriangleColors.length);
+    selectedTriangleActualColors.splice(0, selectedTriangleActualColors.length);
 }
 
 function eraseMode(eraserButton) {
