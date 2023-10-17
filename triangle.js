@@ -14,7 +14,6 @@ const MAX_SLIDER = 200;
 const MIN_ZOOM = 0.3;
 const MAX_ZOOM = calculateMaxZoom();
 const IDENTITY_MT4 = mat4()
-
 var zoomFactor = DEF_ZOOM;
 var currentSlider = DEF_SLIDER;
 var gl;
@@ -60,7 +59,6 @@ var editButtonsToBeUpdated = [];
 var viewMatrix;
 var currentCanvasWidth = CANVAS_WIDTH;
 var sliderValueText;
-// move variables
 var startX;
 var startY;
 var updateSelectCoords1 = true;
@@ -75,6 +73,12 @@ var selectedTriangleActualColors = [];
 var selectedAreaStartTriangle = [];
 var selectedAreaStartCell = [];
 var editButtonsToBeUpdated = [];
+var layerNo = 0;
+var lastLayerIdNo = -1;
+var layerStack = [];
+var activeLayerId = -1; // l-0
+var activeLayer = null;
+var layerAreaDiv;
 
 const StrokeType = {
     Draw: "draw",
@@ -92,15 +96,6 @@ class Layer {
         this.isVisible = isVisible;
     }
 }
-
-// layer variables
-var layerNo = 0;
-var lastLayerIdNo = -1;
-var layerStack = [];
-var activeLayerId = -1; // l-0
-var activeLayer = null;
-var layerAreaDiv;
-// console.log(layerStack)
 
 class Stroke {
     constructor(triangle, color, type, layerId) {
@@ -185,8 +180,6 @@ function moveCanvasMouseDrag (event) {
     // Update the pan based on mouse drag
     panX += deltaX / (canvas.width / 2 / zoom);
     panY -= deltaY / (canvas.height / 2 / zoom);
-    // panX += deltaX / (canvas.width / 2 / zoom);
-    // panY -= deltaY / (canvas.height / 2 / zoom);
 
     render();
 }
@@ -222,17 +215,9 @@ function moveCanvas(event, canvas) {
     transX += deltaX;
     transY += deltaY;
 
-    // transX = Math.min(transX, 200);
-    // transY = Math.min(transY, 200);
-
     // Update panX and panY based on mouse movement
     panX += deltaX / (CANVAS_WIDTH / 2);
     panY -= deltaY / (CANVAS_WIDTH / 2);
-
-    // console.log("transX", transX)
-
-    // Update the view matrix
-    // updateViewMatrixMove();
 
     canvas.style.transform = `translate(${transX}px, ${transY}px)`;
 
@@ -747,13 +732,11 @@ function handleSelectionMouseUp(event, canvas) {
     }
 
     if (selectedTriangleVertices.length == 0 || selectedTriangleColors.length == 0 || selectedTriangleActualColors.length == 0) {
-        console.log("y");
         // If no selection has been detected, check if the cursor is inside a triangle
         var corner1 = selectionRectangleVertices[0];
         var corner2 = selectionRectangleVertices[2];
 
-        // For every triangleconst
-
+        // For every triangle
         for (let i = 0; i < allVerticesActive.length; i = i + 3) {
             var curTriangle = [allVerticesActive[i], allVerticesActive[i + 1], allVerticesActive[i + 2]];
 
@@ -916,18 +899,6 @@ function drawHandler(event, canvas) {
         const allVerticesActive = allVertices[activeLayerId]; 
         const currentColorVec4Active = currentColorVec4[activeLayerId]; 
 
-        // console.log("all ver:", allVertices)
-        // console.log("color ver:", currentColorVec4.keys)
-        // console.log("active lay:", activeLayer)
-
-        // for (const key in allVertices) {
-        //     if (allVertices.hasOwnProperty(key)) {
-        //         const keyString = Object.keys(key).map(prop => `${prop}: ${key[prop]}`).join(', ');
-        //         const value = allVertices[key];
-        //         console.log(`{ ${keyString} }:`);
-        //     }
-        // }
-
         allVerticesActive.push(clickedTriangle[0]);
         allVerticesActive.push(clickedTriangle[1]);
         allVerticesActive.push(clickedTriangle[2]);
@@ -937,9 +908,6 @@ function drawHandler(event, canvas) {
         currentColorVec4Active.push(currentColor);
 
         strokes[currentStroke].push(new Stroke(clickedTriangle, currentColor, StrokeType.Draw, activeLayerId));
-
-        // gl.bindBuffer(gl.ARRAY_BUFFER, theBuffer);
-        // gl.bufferData(gl.ARRAY_BUFFER, flatten(allVertices), gl.STATIC_DRAW);
     }
     else if (isErasing) {
         const allVerticesActive = allVertices[activeLayerId]; 
@@ -1111,7 +1079,7 @@ function setTriangleColor(r, g, b) {
 
 function pickColor(event) {
     if (currentColorHTMLId != null) {
-        document.getElementById(currentColorHTMLId).style.border = "transparent"
+        document.getElementById(currentColorHTMLId).style.border = "transparent";
     }
 
     currentColorHTMLId = event.target.id;
@@ -1153,10 +1121,6 @@ function updateViewMatrixMove() {
 
 function updateViewMatrix() {
     zoomFactor = zoomFactor.toFixed(2);
-    // viewMatrix = translate([1,1,0])    
-    // viewMatrix = scale(zoomFactor, zoomFactor, 1.0);
-    // viewMatrix = scale(2.0, 2.0, 2.0);
-    // viewMatrix = mult(viewMatrix, scalingMatrix);
 
     // Update the canvas size based on the zoom
     const newCanvasWidth = CANVAS_WIDTH * zoomFactor;
@@ -1170,7 +1134,6 @@ function updateViewMatrix() {
     canvasContainer.width = Math.max(parseInt(containerStyle.width, 10), canvas.width + 3000);
     canvasContainer.height = Math.max(parseInt(containerStyle.height, 10), canvas.height + 300);
 
-    // console.log("new height", canvasContainer.height)
     // Update the viewport
     gl.viewport(0, 0, newCanvasWidth, newCanvasHeight);
     render();
@@ -1182,7 +1145,6 @@ function updateCanvasScale(event, slideBtn) {
     if (isSliding) {
         sliderValue = slideBtn.value;
         zoomFactor = sliderToZoom(sliderValue, MAX_ZOOM, MIN_ZOOM, MAX_SLIDER, MIN_SLIDER);
-        // console.log("value:", zoomFactor)
         isSliding = false;
     }
     else {
@@ -1195,7 +1157,6 @@ function updateCanvasScale(event, slideBtn) {
         }
 
         sliderValue = zoomToSlider(zoomFactor, MAX_ZOOM, MIN_ZOOM, MAX_SLIDER, MIN_SLIDER);
-        // console.log("value:", sliderValue)
     }
 
     slideBtn.value = sliderValue;
@@ -1534,8 +1495,6 @@ function moveSelectionMode(moveSelectionButton) {
 function copySelection(copyButton) {
     updateButtonBackground(copyButton);
     resetAllModes();
-    // resetSelectionData();
-
     isCopying = true;
     renderSelectedTriangles();
 }
@@ -1558,14 +1517,11 @@ function saveFile() {
 
 function changeLayerVis(layerId, img) {
     var curLayer = layerStack.filter((layer) => layer.id == layerId)[0];
-    // console.log("Alio1", curLayer)
 
     if (curLayer.isVisible) {
-        // console.log("Alio2")
         curLayer.setVisible(false);
         img.src = './icons/icons8-not-visible-30.png';
     } else {
-        // console.log("Alio3")
         curLayer.setVisible(true);
         img.src = './icons/icons8-eye-30.png';
     }
@@ -1587,7 +1543,6 @@ function addLayer() {
 
     allVertices[newLayer.id] = [];
 
-    console.log("new layer is added", allVertices)
     currentColorVec4[newLayer.id] = [];
 
     theBuffer[newLayer.id] = gl.createBuffer();
@@ -1624,7 +1579,6 @@ function addLayerFromFile(newLayerIdNo) {
 
     allVertices[newLayer.id] = [];
 
-    console.log("new layer is added", allVertices)
     currentColorVec4[newLayer.id] = [];
 
     theBuffer[newLayer.id] = gl.createBuffer();
@@ -1672,34 +1626,28 @@ function addFirstLayerFromFile(newLayerIdNo) {
     activeLayer = newLayer;
 }
 
+// Creates the HTML div of Layer Info Card
 function createLayerDiv(layerIdNo) {
-    // Create a <div> element with the class and ID attributes
     const layerDiv = document.createElement('div');
     layerDiv.classList.add('layer');
     layerDiv.id = 'l-' + layerIdNo;
 
-    // Create a <p> element and set its content
     const pElement = document.createElement('p');
     pElement.textContent = `Layer ${layerIdNo + 1}`;
 
-    // Create a <button> element with the class and value attributes
     const buttonElement = document.createElement('button');
     buttonElement.classList.add('icon-button', 'layer-button', 'visible-button');
     buttonElement.value = 'l-' + layerIdNo;
 
-    // Create an <img> element and set its src and alt attributes
     const imgElement = document.createElement('img');
     imgElement.src = './icons/icons8-eye-30.png';
     imgElement.alt = 'Visible Layer Icon';
 
-    // Append the <img> element to the <button> element
     buttonElement.appendChild(imgElement);
 
-    // Append the <p> element and <button> element to the <div> element
     layerDiv.appendChild(pElement);
     layerDiv.appendChild(buttonElement);
 
-    // Append the <div> element to the document (or any other desired parent element)
     layerAreaDiv.appendChild(layerDiv);
 
     return [buttonElement, layerDiv];
@@ -1714,7 +1662,6 @@ function removeLayerDiv(layerId) {
 }
 
 function deleteLayer() {
-    // console.log("active:", activeLayerId)
     // There should be at least one layer
     if (layerNo <= 1) {
         return;
@@ -1722,7 +1669,7 @@ function deleteLayer() {
 
     removeLayerDiv(activeLayerId);
 
-    // remove the current layer data from the all vertices
+    // Remove the current layer data from the all vertices
     delete allVertices.activeLayer;
     delete currentColorVec4.activeLayer;
 
@@ -1805,11 +1752,8 @@ function loadFile(file) {
                 pointsGrid = jsonData.pointsGrid;
                 glGrid = jsonData.glGrid;
                 gridCells = jsonData.gridCells;
-                // layerStack = jsonData.layerStack;
                 allVertices = jsonData.allVertices;
-                // theBuffer = jsonData.theBuffer;
                 currentColorVec4 = jsonData.currentColorVec4;
-                // theColorBuffer = jsonData.theColorBuffer;
                 lastLayerIdNo = jsonData.lastLayerIdNo;
                 layerNo = layerNo;    
 
