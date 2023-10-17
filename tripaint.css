@@ -117,9 +117,10 @@ code {
   bottom: 0;
   width: 160px;
   padding-top: 85px;
+  padding-bottom: 45px;
   display: flex;
   align-items:center;
-  justify-content: flex-start;
+  justify-content: space-between;
   flex-direction: column;
   color: white;
 }
@@ -220,4 +221,65 @@ code {
 
 .line {
   width: 150px;
+}
+
+.layer-menu {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-direction: column;
+  /* gap: 10px; */
+  width: 150px;
+  height: 200px;
+  border: 2px solid white;
+}
+
+.layer-area {
+  flex: 1;
+  padding: 0px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex-direction: column;
+  /* gap: 0; */
+  width: 150px;
+  border: 1px solid white;
+  overflow: auto;
+}
+
+.layer-options {  
+  display: flex;
+  align-content: center;
+  justify-content: space-between;
+  gap: 1px;
+  flex-direction: row;
+}
+
+.layer-button img {
+  width: 15px;
+  height: 15px;
+}
+
+.layer {
+  display: flex;  
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: space-around;
+  border: 1px solid white;
+  width: 99%;
+  min-height: 30px;
+  background-color: #c7c7c7bc;
+  font-family: 'Consolas', 'Courier New', Courier, monospace;
+}
+
+.layer button img {
+  padding-top: 14px;
+}
+
+.layer button:hover {
+  background-color: transparent;
+}
+
+.layer:hover {
+  cursor: pointer;
 }

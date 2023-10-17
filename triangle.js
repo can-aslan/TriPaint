@@ -25,10 +25,10 @@ var isSelecting = false;
 var isMouseDown = false;
 var isSliding = false;
 var isMoving = false;
-var allBuffers = [];
+var allBuffers = [];//
 var pointsGrid = [];
 var glGrid = [];
-var gridCells = [];
+var gridCells = [];//
 var program;
 var zoom = 1.0;
 var panX = 0.0;
@@ -70,6 +70,25 @@ const StrokeType = {
     Erase: "erase",
     Unknown: "unknown"
 }
+
+class Layer {
+    constructor(id) {
+        this.id = "l-" + id;
+        this.isVisible = true;
+    }
+
+    setVisible(isVisible) {
+        this.isVisible = isVisible;
+    }
+}
+
+// layer variables
+var layerNo = 0;
+var lastLayerIdNo = -1;
+var layerStack = [];
+var activeLayerId = -1; // l-0
+var layerAreaDiv;
+console.log(layerStack)
 
 class Stroke {
     constructor(triangle, color, type) {
@@ -784,6 +803,7 @@ window.onload = function init() {
 
     // Add event listener for each button
     sliderValueText = document.getElementById("slidertext");
+    layerAreaDiv = document.getElementById("layer-area");
 
     var undoButton = document.getElementById("undobutton");
     undoButton.addEventListener("click", undoLastStroke);
@@ -804,7 +824,23 @@ window.onload = function init() {
     copyButton.addEventListener("click", copySelection);
     
     var pasteButton = document.getElementById("pastebutton");
-    pasteButton.addEventListener("click", pasteSelection);
+    pasteButton.addEventListener("click", pasteSelection); 
+
+ 
+
+    addFirstLayer();
+
+    var plusLayerButton = document.getElementById("plusbtn");
+    plusLayerButton.addEventListener("click", addLayer);
+
+    var deleteLayerButton = document.getElementById("binbtn");
+    deleteLayerButton.addEventListener("click", deleteLayer);
+
+    var upLayerButton = document.getElementById("upbtn");
+    upLayerButton.addEventListener("click", moveUpLayer);
+    
+    var downLayerButton = document.getElementById("downbtn");
+    downLayerButton.addEventListener("click", moveDownLayer);
 
     var eraserButton = document.getElementById("eraserbutton");
     eraserButton.addEventListener("click", function() {
@@ -1033,6 +1069,148 @@ function saveFile() {
     resetAllModes();
 
     createAndDownloadJSONFile();
+}
+
+function changeLayerVis(layerId, img) {
+    var curLayer = layerStack.filter((layer) => layer.id == layerId)[0];
+    console.log("Alio1", curLayer)
+
+    if (curLayer.isVisible) {
+        console.log("Alio2")
+        curLayer.setVisible(false);
+        img.src = './icons/icons8-not-visible-30.png';
+    } else {
+        console.log("Alio3")
+        curLayer.setVisible(true);
+        img.src = './icons/icons8-eye-30.png';
+    }
+}
+
+function addLayer() {
+    lastLayerIdNo++;
+    layerNo++;
+
+    layerStack.push(new Layer(lastLayerIdNo));
+    const [visButton, layerDiv] = createLayerDiv(lastLayerIdNo);
+
+    visButton.addEventListener("click", function() {
+        const layerId = this.getAttribute('value');
+        const img = this.querySelector('img');
+        console.log("Alio")
+        changeLayerVis(layerId, img);
+    }); 
+
+    layerDiv.addEventListener("click", function() {
+        document.getElementById(activeLayerId).style.backgroundColor = "#c7c7c7bc";
+        activeLayerId = this.id;
+        layerDiv.style.backgroundColor = "#8d8db2";
+    }); 
+
+    return layerDiv;
+}
+
+function addFirstLayer() {
+    if (layerNo != 0) {
+        return;
+    }
+
+    const newLayer = addLayer();
+    newLayer.style.backgroundColor = "#8d8db2";
+
+    activeLayerId = "l-" + lastLayerIdNo;
+}
+
+function createLayerDiv(layerIdNo) {
+    // Create a <div> element with the class and ID attributes
+    const layerDiv = document.createElement('div');
+    layerDiv.classList.add('layer');
+    layerDiv.id = 'l-' + layerIdNo;
+
+    // Create a <p> element and set its content
+    const pElement = document.createElement('p');
+    pElement.textContent = `Layer ${layerIdNo + 1}`;
+
+    // Create a <button> element with the class and value attributes
+    const buttonElement = document.createElement('button');
+    buttonElement.classList.add('icon-button', 'layer-button', 'visible-button');
+    buttonElement.value = 'l-' + layerIdNo;
+
+    // Create an <img> element and set its src and alt attributes
+    const imgElement = document.createElement('img');
+    imgElement.src = './icons/icons8-eye-30.png';
+    imgElement.alt = 'Visible Layer Icon';
+
+    // Append the <img> element to the <button> element
+    buttonElement.appendChild(imgElement);
+
+    // Append the <p> element and <button> element to the <div> element
+    layerDiv.appendChild(pElement);
+    layerDiv.appendChild(buttonElement);
+
+    // Append the <div> element to the document (or any other desired parent element)
+    layerAreaDiv.appendChild(layerDiv);
+
+    return [buttonElement, layerDiv];
+}
+
+function removeLayerDiv() {
+    const layerDiv = document.getElementById(activeLayerId);
+
+    if (layerDiv) {
+        layerDiv.remove();
+    }
+}
+
+function deleteLayer() {
+    console.log("active:", activeLayerId)
+    // There should be at least one layer
+    if (layerNo <= 1) {
+        return;
+    }
+
+    removeLayerDiv();
+
+    var index = layerStack.findIndex((layer) => layer.id === activeLayerId);
+    
+    layerStack.splice(index, 1);
+    layerNo--;
+
+    if (index != 0) {
+        activeLayerId = layerStack[index - 1].id;
+    }
+    else {
+        activeLayerId = layerStack[index].id;
+    }
+
+    document.getElementById(activeLayerId).style.backgroundColor = "#8d8db2";
+}
+
+function moveDownLayer() {
+    const layers = document.querySelectorAll('.layer');
+    var index = layerStack.findIndex((layer) => layer.id === activeLayerId);
+
+    if (index < layerStack.length - 1) {
+        layerAreaDiv.insertBefore(layers[index + 1], layers[index]);
+        swapLayers(index, index + 1)
+    }  
+}
+
+function moveUpLayer() {
+    const layers = document.querySelectorAll('.layer');
+    var index = layerStack.findIndex((layer) => layer.id === activeLayerId);
+
+    if (index > 0) {
+        layerAreaDiv.insertBefore(layers[index], layers[index - 1]);
+        swapLayers(index, index - 1)
+    }    
+}
+
+function swapLayers(curLayerIndex, swapLayerIndex) {
+    var curLayer = layerStack[curLayerIndex];
+    var temp = layerStack[swapLayerIndex];
+
+    layerStack[swapLayerIndex] = curLayer;
+    layerStack[curLayerIndex] = temp;
 }
 
 function loadFile(file) {
