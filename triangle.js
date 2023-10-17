@@ -465,11 +465,8 @@ function moveSelectionContinuos(event, canvas) {
 
 function handleSelectionMovementMouseUp(event, canvas) {
     if (!isMoveSelectionButtonMode || !hasCompleteSelection) {
-        console.log("test");
         return;
     }
-
-    console.log("test!!!");
 
     var visitedVertex = [];
     var visitedBefore = false;
@@ -549,7 +546,7 @@ function handleSelectionMovementMouseUp(event, canvas) {
                     currentColorVec4Active[k + 2]
                 ];
 
-                strokes[currentStroke - 1].push(new Stroke(triV, triC[0], StrokeType.Erase));
+                strokes[currentStroke - 1].push(new Stroke(triV, triC[0], StrokeType.Erase, activeLayerId));
             }
         }
 
@@ -575,7 +572,7 @@ function handleSelectionMovementMouseUp(event, canvas) {
                     allVerticesActive[k + 2]
                 ]
 
-                strokes[currentStroke].push(new Stroke(newTri, currentColorVec4Active[k], StrokeType.Draw));
+                strokes[currentStroke].push(new Stroke(newTri, currentColorVec4Active[k], StrokeType.Draw, activeLayerId));
 
                 lastOpWasUndoOrRedo = false;
                 
@@ -665,7 +662,7 @@ function handleCopyMovementMouseUp(event, canvas) {
                     new vec2(movedVertex3[0], movedVertex3[1])
                 ]
 
-                strokes[currentStroke].push(new Stroke(newTri, currentColorVec4Active[k], StrokeType.Draw));
+                strokes[currentStroke].push(new Stroke(newTri, currentColorVec4Active[k], StrokeType.Draw, activeLayerId));
 
                 lastOpWasUndoOrRedo = false;
                 
@@ -1792,7 +1789,7 @@ function loadFile(file) {
                 // remove old layers
                 layerStack.forEach(layer => removeLayerDiv(layer.id));
                 layerStack.splice(0, layerStack.length);
-                
+
                 const prevLayerStack = jsonData.layerStack;
 
                 if (prevLayerStack.length > 0) {
@@ -1813,10 +1810,7 @@ function loadFile(file) {
                 currentColorVec4 = jsonData.currentColorVec4;
                 // theColorBuffer = jsonData.theColorBuffer;
                 lastLayerIdNo = jsonData.lastLayerIdNo;
-                layerNo = layerNo; 
-                
-                
-                               
+                layerNo = layerNo;    
 
                 console.log("layerstack:", layerStack);
                 render();
