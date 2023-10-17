@@ -1678,6 +1678,8 @@ function deleteLayer() {
     activeLayer = getLayerById(activeLayerId);
 
     document.getElementById(activeLayerId).style.backgroundColor = "#8d8db2";
+
+    render();
 }
 
 function moveDownLayer() {
